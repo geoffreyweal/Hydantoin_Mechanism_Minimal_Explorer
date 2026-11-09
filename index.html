@@ -15,9 +15,9 @@
 <header>
   <div class="title">
     <h1>Phenylglyoxal hydrate + <i>N</i>-cyclohexyl-<i>N</i>&prime;-methyl(thio)urea &rarr; 5-phenyl(thio)hydantoins: the proposed mechanisms</h1>
-    <p class="sub">The three proposed mechanisms (M1&ndash;M3), each for the urea and the thiourea, with every step through the
-      imidodiphosphate catalyst. Click a structure to turn it in 3D. Click a step arrow to see the step with its curly arrows,
-      a 3D TS guess and the path between the two sides.</p>
+    <p class="sub">The proposed mechanisms, each for the urea and the thiourea and each ending at either isomer: <b>A</b> (P1a, Cy on the
+      same side as Ph) or <b>B</b> (P1b), with every step through the imidodiphosphate catalyst. Click a structure to turn it in 3D.
+      Click a step arrow to see the step with its curly arrows, its TS (2D or 3D) and the path between the two sides.</p>
   </div>
   <div class="controls">
     <div class="seg" id="chsel" role="group" aria-label="Chalcogen">
@@ -26,14 +26,16 @@
     <nav class="seg" id="tabs" role="tablist">
       <button data-tab="mech" class="on">Mechanisms</button><button data-tab="species">Species</button><button data-tab="steps">Steps</button><button data-tab="about">About</button>
     </nav>
-    <input id="q" type="search" placeholder="Find M2, I7b, S7b, acyliminium &hellip;" aria-label="Search">
+    <input id="q" type="search" placeholder="Find M2B, I7b, S7b, acyliminium &hellip;" aria-label="Search">
   </div>
 </header>
 <main>
   <section id="tab-mech" class="tab on">
     <aside id="famlist" aria-label="Mechanisms"></aside>
     <div class="viewwrap">
-      <div class="zoombar"><button data-z="fit" title="Fit to width">Fit</button><button data-z="1" title="Actual size">100%</button><button data-z="+">+</button><button data-z="-">&minus;</button><span id="mechtitle"></span></div>
+      <div class="zoombar"><button data-z="fit" title="Fit to width">Fit</button><button data-z="1" title="Actual size">100%</button><button data-z="+">+</button><button data-z="-">&minus;</button>
+        <span class="tslabel" title="the transition state above each step arrow: a 2D sketch (bonds that form or break dashed) or the 3D TS guess">TS</span><span class="seg tsmode" role="group" aria-label="Transition states above the arrows"><button data-tsm="2d" title="2D sketches of the transition states">2D</button><button data-tsm="3d" title="3D TS guesses (IDPP)">3D</button></span>
+        <span id="mechtitle"></span></div>
       <div id="mechview" class="canvas"><div class="hint">Pick a mechanism on the left.</div></div>
     </div>
   </section>

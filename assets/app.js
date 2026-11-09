@@ -1,5 +1,5 @@
-/* Hydantoin Proposed Mechanisms: the three proposed mechanisms (M1-M3) of the two mechflow projects (Ch_O, Ch_S),
-   their species and steps, structures in 3D and the TS guesses. A static page: it reads only this site's own files
+/* Hydantoin Proposed Mechanisms: the proposed mechanisms of the two mechflow projects (Ch_O, Ch_S), each family in an
+   A version (-> P1a) and a B version (-> P1b), their species and steps, structures in 3D and the TS guesses. A static page: it reads only this site's own files
    (data/*.js, loaded as scripts so that it also works from file://) and talks to nothing else. */
 (function () {
   "use strict";
@@ -47,6 +47,17 @@
       .replace(/\(thio\)hydantoin/g, O ? "hydantoin" : "thiohydantoin").replace(/O\/S/g, O ? "O" : "S")
       .replace(/imino-azolidin/g, O ? "imino-oxazolidin" : "imino-thiazolidin");
   }
+
+  // ------------------------------------------------------------------ the TS pictures: 2D sketch or 3D guess, everywhere
+  function applyTS() {
+    $("#mechview").classList.toggle("ts-2d", !S.ts3d);
+    $$(".tsmode button, .win .tsswitch button").forEach(function (b) {
+      var on = (b.dataset.tsm || b.dataset.ts) === (S.ts3d ? "3d" : "2d");
+      b.classList.toggle("on", on); b.setAttribute("aria-pressed", on ? "true" : "false");
+    });
+    $$(".win .svgbox").forEach(function (box) { box.classList.toggle("show3d", S.ts3d && !!box.querySelector(".ts3d")); });
+  }
+  function setTS(three) { S.ts3d = !!three; savePrefs(); applyTS(); }
 
   // ------------------------------------------------------------------ xyz helpers
   function frames(txt) {
@@ -177,20 +188,15 @@
     });
     // the TS above the arrow: the 2D sketch (.ts2d) or the 3D TS guess (.ts3d), when the drawing has both
     var dBox = $(".pane[data-p=d] .svgbox", body), sw = $(".pane[data-p=d] .tsswitch", body);
-    function show3d(on) {
-      dBox.classList.toggle("show3d", on);
-      $$("button", sw).forEach(function (b) { var o = (b.dataset.ts === "3d") === on; b.classList.toggle("on", o); b.setAttribute("aria-pressed", o ? "true" : "false"); });
-    }
     sw.addEventListener("click", function (e) {
       var b = e.target.closest("button[data-ts]"); if (!b) return;
-      S.ts3d = b.dataset.ts === "3d"; savePrefs(); show3d(S.ts3d);
+      setTS(b.dataset.ts === "3d");                     // the same choice as in the mechanism view
     });
     if (st.drawn === false) dBox.textContent = NODRAW;
     else load("step", ch, sid + "_" + dir).then(function (svg) {
       dBox.innerHTML = svg;
-      var both = !!dBox.querySelector(".ts3d") && !!dBox.querySelector(".ts2d");
-      sw.hidden = !both;
-      show3d(both && S.ts3d);
+      sw.hidden = !(dBox.querySelector(".ts3d") && dBox.querySelector(".ts2d"));
+      applyTS();
     }).catch(function () { dBox.textContent = "No drawing for this step."; });
     var mechs = st.used_by.filter(function (m) { return baseMech(m, ch); });
     var reaction = rev ? st.reaction.split(" -> ").reverse().join(" -> ") : st.reaction;
@@ -260,23 +266,29 @@
 
   // ------------------------------------------------------------------ mechanisms tab
   function query() { return ($("#q").value || "").trim().toLowerCase(); }
-  function famList() {
-    var q = query(), mm = M().mechanisms, F = META.families, major = META.major[S.ch], out = "";
-    var ids = Object.keys(mm).sort(nat).filter(function (mid) {
-      var m = mm[mid], f = F[m.family] || {};
-      return !q || (mid + " " + m.name + " " + (f.text || "") + " " + m.product + " " + m.steps.join(" ")).toLowerCase().indexOf(q) >= 0 ||
-        m.steps.some(function (s) { return s.toLowerCase() === q; });
+  function famList() {                // one entry per family, with a button for its A (-> P1a) and its B (-> P1b) version
+    var q = query(), mm = M().mechanisms, F = META.families, major = META.major[S.ch], out = "", byFam = {};
+    Object.keys(mm).sort(nat).forEach(function (mid) { var f = mm[mid].family || mid; (byFam[f] = byFam[f] || []).push(mid); });
+    var fams = Object.keys(byFam).sort(nat).filter(function (f) {
+      var info = F[f] || {}, words = f + " " + (info.title || "") + " " + (info.text || "") + " " +
+        byFam[f].map(function (mid) { return mid + " " + mm[mid].name + " " + mm[mid].product + " " + mm[mid].steps.join(" "); }).join(" ");
+      return !q || chText(words).toLowerCase().indexOf(q) >= 0;
     });
     out += "<div class='group'><h3>Proposed mechanisms (" + esc(CHN[S.ch]) + ")</h3>";
-    ids.forEach(function (mid) {
-      var m = mm[mid], f = F[m.family] || {};
-      out += "<div class='fam" + (S.mech === mid ? " on" : "") + "' data-m='" + esc(mid) + "' tabindex='0' role='button'><span class='id'>" + esc(mid) +
-        "</span><span class='prod'>&rarr; " + esc(m.product) + " (" + esc(META.iso[m.product] || "") + ")</span>" +
-        (m.product === major ? "<span class='bdg obs' title='the isomer observed as the major product with the " + esc(CHN[S.ch]) + "'>observed major</span>" : "") +
-        "<div class='txt'>" + esc(chText(f.title || m.name)) + "</div><div class='txt more'>" + esc(chText(f.text || "")) + "</div></div>";
+    fams.forEach(function (f) {
+      var info = F[f] || {}, ms = byFam[f], on = ms.indexOf(S.mech) >= 0;
+      out += "<div class='fam" + (on ? " on" : "") + "' data-first='" + esc(ms[0]) + "'><span class='id'>" + esc(f) + "</span><span class='txt'>" +
+        esc(chText(info.title || mm[ms[0]].name)) + "</span><div class='txt more'>" + esc(chText(info.text || "")) + "</div><div class='ab'>" +
+        ms.map(function (mid) {
+          var m = mm[mid], v = mid.slice(f.length) || mid, ver = (info.versions || {})[v] || "";
+          return "<button data-m='" + esc(mid) + "' class='" + (S.mech === mid ? "on" : "") + "' title='" + esc(mid + ": " + chText(m.name)) + "'>" +
+            "<b>" + esc(v) + "</b> &rarr; " + esc(m.product) + " <span class='iso'>(" + esc(META.iso[m.product] || "") + ")</span>" +
+            (m.product === major ? "<span class='bdg obs' title='the isomer observed as the major product with the " + esc(CHN[S.ch]) + "'>observed major</span>" : "") +
+            (ver ? "<span class='ver'>" + esc(chText(ver)) + "</span>" : "") + "</button>";
+        }).join("") + "</div></div>";
     });
-    if (!ids.length) out += "<div class='hint'>No mechanism matches.</div>";
-    out += "</div><div class='famnote'>" + esc(META.note[S.ch]) + "</div>";
+    if (!fams.length) out += "<div class='hint'>No mechanism matches.</div>";
+    out += "</div><div class='famnote'>" + esc(META.note[S.ch]) + " A = Cy on the same side as Ph (P1a, 1-Cy-3-Me); B = Cy on the other side (P1b, 1-Me-3-Cy).</div>";
     $("#famlist").innerHTML = out;
   }
   function firstMech() { return Object.keys(M().mechanisms).sort(nat)[0] || null; }
@@ -289,7 +301,7 @@
     $("#mechview").innerHTML = "<div class='hint'>loading&hellip;</div>";
     load("mech", ch, mid).then(function (svg) {
       if (S.mech !== mid || S.ch !== ch) return;
-      $("#mechview").innerHTML = svg; zoom(S.zoom || "fit");
+      $("#mechview").innerHTML = svg; zoom(S.zoom || "fit"); applyTS();
     }, function () {
       if (S.mech !== mid || S.ch !== ch) return;
       $("#mechview").innerHTML = "<div class='hint'>No drawing of this mechanism yet: rebuild the website (make_website.py) to draw it.</div>";
@@ -306,16 +318,16 @@
     else if (z === "+") f = cur * 1.25; else if (z === "-") f = cur / 1.25; else f = +z;
     svg.setAttribute("width", W * f); svg.setAttribute("height", H * f); S.zoom = z === "+" || z === "-" ? f : z;
   }
-  $("#famlist").addEventListener("click", function (e) { var f = e.target.closest(".fam[data-m]"); if (f) showMech(f.getAttribute("data-m")); });
-  $("#famlist").addEventListener("keydown", function (e) {
-    var f = e.target.closest(".fam[data-m]");
-    if (f && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); showMech(f.getAttribute("data-m")); }
+  $("#famlist").addEventListener("click", function (e) {
+    var b = e.target.closest("button[data-m]"); if (b) { showMech(b.getAttribute("data-m")); return; }
+    var f = e.target.closest(".fam[data-first]"); if (f) showMech(f.getAttribute("data-first"));
   });
   $("#mechview").addEventListener("click", function (e) {
     var lk = e.target.closest(".lk"); if (lk) { openStep(lk.dataset.step, lk.dataset.dir); return; }
     var sp = e.target.closest(".sp"); if (sp) openMol(sp.dataset.ids.split(" "));
   });
   $$(".zoombar button[data-z]").forEach(function (b) { b.onclick = function () { zoom(b.dataset.z); }; });
+  $$(".tsmode button").forEach(function (b) { b.onclick = function () { setTS(b.dataset.tsm === "3d"); }; });
 
   // ------------------------------------------------------------------ tables
   function tables() {
@@ -346,7 +358,8 @@
       " species (including the start structures of the proton-transfer scans) and " + nt + " steps. Species and step IDs are the same as in the " +
       "mechflow projects <code>Ch_O</code> and <code>Ch_S</code>, which are used for the DFT calculations.</p>" +
       META.about.sections.map(function (s) { return "<h2>" + esc(s[0]) + "</h2>" + s.slice(1).map(function (p) { return "<p>" + esc(p) + "</p>"; }).join(""); }).join("") +
-      "<h2>Links</h2><p>The address can open a view directly, for example <code>#ch=S&amp;m=M2&amp;step=S7b</code> or <code>#ch=O&amp;mol=I7a</code>.</p>";
+      "<h2>Links</h2><p>The address can open a view directly, for example <code>#ch=S&amp;m=M2B&amp;step=S7b</code>, <code>#ch=O&amp;mol=I7a</code> " +
+      "or <code>#m=M1A&amp;ts=3d</code>.</p>";
   }
 
   // ------------------------------------------------------------------ top bar
@@ -375,13 +388,14 @@
 
   // ------------------------------------------------------------------ start
   var H = Object.create(null);
-  // deep links: #ch=S&m=M2&step=S7b&dir=fwd&mol=I7b,R2&tab=steps&pane=p
+  // deep links: #ch=S&m=M2B&step=S7b&dir=fwd&mol=I7b,R2&tab=steps&pane=p&ts=3d
   (location.hash || "").replace(/^#/, "").split("&").forEach(function (kv) {
     var q = kv.split("=");
     if (q[0]) { try { H[q[0]] = decodeURIComponent(q[1] || ""); } catch (e) { H[q[0]] = ""; } }
   });
   if (H.ch === "S" || H.ch === "O") { S.ch = H.ch; $$("#chsel button").forEach(function (b) { b.classList.toggle("on", b.dataset.ch === S.ch); }); }
-  famList(); tables(); about();
+  if (H.ts === "2d" || H.ts === "3d") S.ts3d = H.ts === "3d";
+  famList(); tables(); about(); applyTS();
   showMech(baseMech(H.m) ? H.m : firstMech());
   if (H.tab) setTab(H.tab);
   if (H.step) openStep(H.step, H.dir || "fwd");
