@@ -15,6 +15,8 @@ Each mechanism is drawn in an **A** version, which ends at P1a, and a **B** vers
 | **M1B** (proposed mechanism III) | P1b | the same with Cy and Me swapped: N-Cy adds to C4 first, N-Me closes the ring |
 | **M2A** (II with Cy and Me swapped) | P1a | the (thio)urea tautomerises to the iso(thio)urea Cy-N=C(XH)-NH-Me; its O/S adds to C4; the imine N-Cy closes onto C5; C4 moves from O/S to the exocyclic N-Me (1,3-shift); then as M1A |
 | **M2B** (proposed mechanism II) | P1b | the (thio)urea tautomerises to the iso(thio)urea Cy-NH-C(XH)=N-Me through the catalyst; its O/S adds to C4; the imine N-Me closes onto C5 (2-imino-oxazolidine / thiazolidine); C4 moves from O/S to the exocyclic N-Cy (1,3-shift); then as M1B |
+| **M3A**, **M3B** | P1a, P1b | M1A and M1B one step at a time: the enol tautomerises in two proton transfers (HA protonates C5, then A⁻ takes the H on O4) |
+| **M4A**, **M4B** | P1a, P1b | M2A and M2B one step at a time: the (thio)urea becomes the iso(thio)urea in two proton transfers; the C4–O/S bond breaks (a zwitterion) before the N closes onto C4; the enol as in M3 |
 
 Every proton transfer is a step through the catalyst HA = (PhO)₂P(O)NHP(O)(OPh)₂ (drawn A–H; its conjugate base A⁻).
 Species and step IDs (I7b, S7b …) are the same as in the mechflow projects used for the DFT calculations.
@@ -23,11 +25,11 @@ Open `index.html` in a browser: no server or installation is needed, and the pag
 
 ## What you can do
 
-- **Mechanisms.** Pick a family (M1, M2) and its **A** (→ P1a) or **B** (→ P1b) version, and the urea or the thiourea
+- **Mechanisms.** Pick a family (M1–M4) and its **A** (→ P1a) or **B** (→ P1b) version, and the urea or the thiourea
   at the top. Each step with a transition state has its own colour, used for the arrow between the structures and for
   the curly arrows on the structure before it. Above each arrow is the step's transition state: **TS 2D | 3D** (above
-  the drawing) shows it as a 2D sketch, with the bonds that form or break dashed, or as the 3D TS guess; the choice is
-  remembered and also applies in the step windows. Proton transfers and relays through the catalyst are grey; proton
+  the drawing) shows it as a 2D sketch, with the bonds that form or break dashed, or as the 3D TS guess. The step
+  windows have their own 2D | 3D switch; the two choices are separate, and each is remembered. Proton transfers and relays through the catalyst are grey; proton
   transfers and steps that release or take up water are drawn as equilibria (⇌).
 - **Click a structure** to turn it in 3D (3Dmol.js): label the key atoms (C5, C4, O5 …), change the style, or download
   the xyz file.

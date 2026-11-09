@@ -3,7 +3,7 @@
    (data/*.js, loaded as scripts so that it also works from file://) and talks to nothing else. */
 (function () {
   "use strict";
-  var S = { ch: "O", tab: "mech", mech: null, zoom: null, top: 100, ts3d: false };
+  var S = { ch: "O", tab: "mech", mech: null, zoom: null, top: 100, mts3d: false, ts3d: false };   // TS pictures: mechanism view, step windows
   var $ = function (s, el) { return (el || document).querySelector(s); };
   var $$ = function (s, el) { return Array.prototype.slice.call((el || document).querySelectorAll(s)); };
   var CHN = { O: "urea", S: "thiourea" };
@@ -11,10 +11,13 @@
   var NODRAW = "No drawing for this step yet: rebuild the website (make_website.py) to draw it.";
 
   (function prefs() {                    // per-viewer conveniences only
-    try { S.ts3d = JSON.parse(localStorage.getItem("hpm.prefs") || "{}").ts3d === true; } catch (e) { /* no storage */ }
+    try {
+      var p = JSON.parse(localStorage.getItem("hpm.prefs") || "{}");
+      S.mts3d = p.mts3d === true; S.ts3d = p.ts3d === true;
+    } catch (e) { /* no storage */ }
   })();
   function savePrefs() {
-    try { localStorage.setItem("hpm.prefs", JSON.stringify({ ts3d: S.ts3d })); } catch (e) { /* no storage */ }
+    try { localStorage.setItem("hpm.prefs", JSON.stringify({ mts3d: S.mts3d, ts3d: S.ts3d })); } catch (e) { /* no storage */ }
   }
 
   // ------------------------------------------------------------------ data files loaded on demand (works from file://)
@@ -48,16 +51,21 @@
       .replace(/imino-azolidin/g, O ? "imino-oxazolidin" : "imino-thiazolidin");
   }
 
-  // ------------------------------------------------------------------ the TS pictures: 2D sketch or 3D guess, everywhere
-  function applyTS() {
-    $("#mechview").classList.toggle("ts-2d", !S.ts3d);
-    $$(".tsmode button, .win .tsswitch button").forEach(function (b) {
-      var on = (b.dataset.tsm || b.dataset.ts) === (S.ts3d ? "3d" : "2d");
-      b.classList.toggle("on", on); b.setAttribute("aria-pressed", on ? "true" : "false");
-    });
-    $$(".win .svgbox").forEach(function (box) { box.classList.toggle("show3d", S.ts3d && !!box.querySelector(".ts3d")); });
+  // ------------------------------------------------------------------ the TS pictures: 2D sketch or 3D guess
+  /* Two separate choices, each remembered: the mechanism view (the switch above the drawing, S.mts3d) and the step
+     windows (the switch in a step's window, S.ts3d: it changes that window, and new windows open the same way). */
+  function pressed(buttons, which) {
+    buttons.forEach(function (b) { var on = (b.dataset.tsm || b.dataset.ts) === which; b.classList.toggle("on", on); b.setAttribute("aria-pressed", on ? "true" : "false"); });
   }
-  function setTS(three) { S.ts3d = !!three; savePrefs(); applyTS(); }
+  function applyMechTS() {
+    $("#mechview").classList.toggle("ts-2d", !S.mts3d);
+    pressed($$(".tsmode button"), S.mts3d ? "3d" : "2d");
+  }
+  function setMechTS(three) { S.mts3d = !!three; savePrefs(); applyMechTS(); }
+  function stepTS(box, sw) {                 // one step window's diagram: its TS as the 2D sketch or the 3D guess
+    box.classList.toggle("show3d", S.ts3d && !!box.querySelector(".ts3d"));
+    pressed($$("button", sw), S.ts3d ? "3d" : "2d");
+  }
 
   // ------------------------------------------------------------------ xyz helpers
   function frames(txt) {
@@ -190,13 +198,13 @@
     var dBox = $(".pane[data-p=d] .svgbox", body), sw = $(".pane[data-p=d] .tsswitch", body);
     sw.addEventListener("click", function (e) {
       var b = e.target.closest("button[data-ts]"); if (!b) return;
-      setTS(b.dataset.ts === "3d");                     // the same choice as in the mechanism view
+      S.ts3d = b.dataset.ts === "3d"; savePrefs(); stepTS(dBox, sw);     // this window (and new ones); not the mechanism view
     });
     if (st.drawn === false) dBox.textContent = NODRAW;
     else load("step", ch, sid + "_" + dir).then(function (svg) {
       dBox.innerHTML = svg;
       sw.hidden = !(dBox.querySelector(".ts3d") && dBox.querySelector(".ts2d"));
-      applyTS();
+      stepTS(dBox, sw);
     }).catch(function () { dBox.textContent = "No drawing for this step."; });
     var mechs = st.used_by.filter(function (m) { return baseMech(m, ch); });
     var reaction = rev ? st.reaction.split(" -> ").reverse().join(" -> ") : st.reaction;
@@ -301,7 +309,7 @@
     $("#mechview").innerHTML = "<div class='hint'>loading&hellip;</div>";
     load("mech", ch, mid).then(function (svg) {
       if (S.mech !== mid || S.ch !== ch) return;
-      $("#mechview").innerHTML = svg; zoom(S.zoom || "fit"); applyTS();
+      $("#mechview").innerHTML = svg; zoom(S.zoom || "fit"); applyMechTS();
     }, function () {
       if (S.mech !== mid || S.ch !== ch) return;
       $("#mechview").innerHTML = "<div class='hint'>No drawing of this mechanism yet: rebuild the website (make_website.py) to draw it.</div>";
@@ -327,7 +335,7 @@
     var sp = e.target.closest(".sp"); if (sp) openMol(sp.dataset.ids.split(" "));
   });
   $$(".zoombar button[data-z]").forEach(function (b) { b.onclick = function () { zoom(b.dataset.z); }; });
-  $$(".tsmode button").forEach(function (b) { b.onclick = function () { setTS(b.dataset.tsm === "3d"); }; });
+  $$(".tsmode button").forEach(function (b) { b.onclick = function () { setMechTS(b.dataset.tsm === "3d"); }; });
 
   // ------------------------------------------------------------------ tables
   function tables() {
@@ -394,8 +402,8 @@
     if (q[0]) { try { H[q[0]] = decodeURIComponent(q[1] || ""); } catch (e) { H[q[0]] = ""; } }
   });
   if (H.ch === "S" || H.ch === "O") { S.ch = H.ch; $$("#chsel button").forEach(function (b) { b.classList.toggle("on", b.dataset.ch === S.ch); }); }
-  if (H.ts === "2d" || H.ts === "3d") S.ts3d = H.ts === "3d";
-  famList(); tables(); about(); applyTS();
+  if (H.ts === "2d" || H.ts === "3d") S.mts3d = H.ts === "3d";       // #ts=: the mechanism view
+  famList(); tables(); about(); applyMechTS();
   showMech(baseMech(H.m) ? H.m : firstMech());
   if (H.tab) setTab(H.tab);
   if (H.step) openStep(H.step, H.dir || "fwd");
