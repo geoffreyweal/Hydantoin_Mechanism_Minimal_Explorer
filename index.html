@@ -9,7 +9,7 @@
 <meta name="referrer" content="no-referrer">
 <title>Hydantoin Proposed Mechanisms</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="assets/style.css?v=20261110152215">
+<link rel="stylesheet" href="assets/style.css?v=20261110153553">
 </head>
 <body>
 <header>
@@ -24,9 +24,9 @@
       <button data-ch="O" class="on">Urea (O)</button><button data-ch="S">Thiourea (S)</button>
     </div>
     <nav class="seg" id="tabs" role="tablist">
-      <button data-tab="mech" class="on">Mechanisms</button><button data-tab="species">Species</button><button data-tab="steps">Steps</button><button data-tab="about">About</button>
+      <button data-tab="mech" class="on">Mechanisms</button><button data-tab="net">Network</button><button data-tab="species">Species</button><button data-tab="steps">Steps</button><button data-tab="about">About</button>
     </nav>
-    <input id="q" type="search" placeholder="Find M2B, I7b, S7b, acyliminium &hellip;" aria-label="Search">
+    <input id="q" type="search" placeholder="Find M2B, I7b, S7b, R1A, acyliminium &hellip;" aria-label="Search">
   </div>
 </header>
 <main>
@@ -39,16 +39,33 @@
       <div id="mechview" class="canvas"><div class="hint">Pick a mechanism on the left.</div></div>
     </div>
   </section>
+  <section id="tab-net" class="tab">
+    <aside id="routelist" aria-label="Routes"></aside>
+    <div class="viewwrap">
+      <div class="zoombar netbar">
+        <button data-nz="fit" title="Fit the whole network">Fit</button><button data-nz="+">+</button><button data-nz="-">&minus;</button>
+        <button id="netclear" title="Show every route again" hidden>show all routes</button>
+        <button id="resetpos" title="Put the boxes you moved back where they were" hidden>reset positions</button>
+        <span id="netinfo"></span>
+      </div>
+      <div class="netsub small">Drag to pan, drag a box to move it, scroll to zoom. Boxes are states, arrows are steps: click a box for its
+        structures in 3D, an arrow for the step. Pick a route on the left to see it in the network.</div>
+      <div id="netview" class="canvas pan"></div>
+      <div id="netlegend" class="legend"></div>
+    </div>
+  </section>
   <section id="tab-species" class="tab"><div class="tablewrap"><table id="sptable"></table></div></section>
   <section id="tab-steps" class="tab"><div class="tablewrap"><table id="sttable"></table></div></section>
   <section id="tab-about" class="tab"><div class="about" id="about"></div></section>
 </main>
 <div id="windows"></div>
-<script src="assets/3Dmol-min.js?v=20261110152215"></script>
-<script src="assets/boot.js?v=20261110152215"></script>
-<script src="data/meta.js?v=20261110152215"></script>
-<script src="data/xyz_O.js?v=20261110152215"></script>
-<script src="data/xyz_S.js?v=20261110152215"></script>
-<script src="assets/app.js?v=20261110152215"></script>
+<script src="assets/3Dmol-min.js?v=20261110153553"></script>
+<script src="assets/boot.js?v=20261110153553"></script>
+<script src="data/meta.js?v=20261110153553"></script>
+<script src="data/xyz_O.js?v=20261110153553"></script>
+<script src="data/xyz_S.js?v=20261110153553"></script>
+<script src="data/network_O.js?v=20261110153553"></script>
+<script src="data/network_S.js?v=20261110153553"></script>
+<script src="assets/app.js?v=20261110153553"></script>
 </body>
 </html>

@@ -32,6 +32,11 @@ Open `index.html` in a browser: no server or installation is needed, and the pag
   the drawing) shows it as a 2D sketch, with the bonds that form or break dashed, or as the 3D TS guess. The step
   windows have their own 2D | 3D switch; the two choices are separate, and each is remembered. Proton transfers and relays through the catalyst are grey; proton
   transfers and steps that release or take up water are drawn as equilibria (⇌).
+- **Network.** Every mechanism of the urea or the thiourea in one network (boxes are states, arrows are steps). Three
+  changes can each happen at once (thick arrows: S7, S16, S17) or one step at a time (through a light-blue box: S8 + S9,
+  S21 + S22, S23 + S24), and any combination can happen: the list on the left has every route (the mechanisms M1–M5 and
+  the other combinations R1A … R5B); click one to pick it out. Drag to pan, scroll to zoom, drag a box to move it, click
+  a box for 3D or an arrow for the step.
 - **Click a structure** to turn it in 3D (3Dmol.js): label the key atoms (C5, C4, O5 …), change the style, or download
   the xyz file.
 - **Click a step arrow** to open the step in its own window: the diagram with the TS above the arrow (2D, with the bonds
@@ -40,7 +45,7 @@ Open `index.html` in a browser: no server or installation is needed, and the pag
   backwards) and **Details**.
 - **Species / Steps.** Searchable lists. The search box also finds mechanisms (`M2B`), species (`I7b`) and steps (`S7b`).
 - **Links.** The address can open a view directly, for example `index.html#ch=S&m=M2B&step=S7b`, `#ch=O&mol=I7a` or
-  `#m=M1A&ts=3d`.
+  `#m=M1A&ts=3d` or `#ch=S&tab=net&route=M5B`.
 
 The TS guesses and start structures come from a force field and an IDPP interpolation: they are pictures and starting
 points, not DFT results. The page is static: it reads only its own files and connects to nothing else.
@@ -50,7 +55,8 @@ points, not DFT results. The page is static: it reads only its own files and con
 | folder | what |
 |---|---|
 | `index.html`, `assets/` | the page, its script and styles, and 3Dmol.js |
-| `data/` | the drawings and structures, as small script files (so that the page also works from the disk) |
+| `data/` | the drawings, structures and networks, as small script files (so that the page also works from the disk) |
+| `img/net/` | the structures in the network boxes |
 | `xyz/species/`, `xyz/ts_guesses/` | every start structure, TS guess and path as xyz files (open with `ase gui`) |
 
 Built by `make_website.py` from the study's sources (not part of this repository).
