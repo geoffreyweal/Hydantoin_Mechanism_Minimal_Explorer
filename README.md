@@ -18,6 +18,7 @@ Each mechanism is drawn in an **A** version, which ends at P1a, and a **B** vers
 | **M3A**, **M3B** | P1a, P1b | M1A and M1B one step at a time: the enol tautomerises in two proton transfers (HA protonates C5, then A⁻ takes the H on O4) |
 | **M4A**, **M4B** | P1a, P1b | M2A and M2B one step at a time: the (thio)urea becomes the iso(thio)urea in two proton transfers; the C4–O/S bond breaks (a zwitterion) before the N closes onto C4; the enol as in M3 |
 | **M5A**, **M5B** (the alternative mechanism: B as drawn, A with Cy and Me swapped) | P1a, P1b | M2 with the 1,3-shift in two steps: O4 pushes and the C4–O/S bond breaks (a zwitterion with C4=OH⁺), then the exocyclic N closes onto C4; the tautomerisations as in M2 |
+| **M6**–**M10** (A and B) | P1a, P1b | the other combinations of M2's three at-once changes done one step at a time: M6 the enol → product, M7 the (thio)urea → iso(thio)urea, M8 the 1,3-shift and the enol, M9 both tautomerisations, M10 the (thio)urea → iso(thio)urea and the 1,3-shift |
 
 Every proton transfer is a step through the catalyst HA = (PhO)₂P(O)NHP(O)(OPh)₂ (drawn A–H; its conjugate base A⁻).
 Species and step IDs (I7b, S7b …) are the same as in the mechflow projects used for the DFT calculations.
@@ -26,7 +27,7 @@ Open `index.html` in a browser: no server or installation is needed, and the pag
 
 ## What you can do
 
-- **Mechanisms.** Pick a family (M1–M5) and its **A** (→ P1a) or **B** (→ P1b) version, and the urea or the thiourea
+- **Mechanisms.** Pick a family (M1–M10) and its **A** (→ P1a) or **B** (→ P1b) version, and the urea or the thiourea
   at the top. Each step with a transition state has its own colour, used for the arrow between the structures and for
   the curly arrows on the structure before it. Above each arrow is the step's transition state: **TS 2D | 3D** (above
   the drawing) shows it as a 2D sketch, with the bonds that form or break dashed, or as the 3D TS guess. The step
@@ -34,8 +35,8 @@ Open `index.html` in a browser: no server or installation is needed, and the pag
   transfers and steps that release or take up water are drawn as equilibria (⇌).
 - **Network.** Every mechanism of the urea or the thiourea in one network (boxes are states, arrows are steps). Three
   changes can each happen at once (thick arrows: S7, S16, S17) or one step at a time (through a light-blue box: S8 + S9,
-  S21 + S22, S23 + S24), and any combination can happen: the list on the left has every route (the mechanisms M1–M5 and
-  the other combinations R1A … R5B); click one to pick it out. Drag to pan, scroll to zoom, drag a box to move it, click
+  S21 + S22, S23 + S24), and any combination can happen: the list on the left has every route (each a mechanism, M1–M10);
+  click one to pick it out. Drag to pan, scroll to zoom, drag a box to move it, click
   a box for 3D or an arrow for the step.
 - **Click a structure** to turn it in 3D (3Dmol.js): label the key atoms (C5, C4, O5 …), change the style, or download
   the xyz file.

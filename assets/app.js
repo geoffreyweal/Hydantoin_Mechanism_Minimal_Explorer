@@ -435,8 +435,9 @@
     });
     out += "<div class='famnote'>Three changes can each happen at once or one step at a time: the " + esc(CHN[S.ch]) + " &rarr; iso" +
       esc(CHN[S.ch]) + " (S17, or S23 + S24), the 1,3-shift (S7, or S8 + S9) and the enol &rarr; product (S16, or S21 + S22). " +
-      "Any combination can happen, so the network holds more routes than the named mechanisms M1&ndash;M5 (R&hellip;: the " +
-      "other combinations). Click a route to pick it out in the network; click it again to show everything.</div>";
+      "Any combination can happen, and each combination is a mechanism of its own (M2 and M4&ndash;M10 through the iso" + esc(CHN[S.ch]) +
+      ", M1 and M3 through the N-adduct)" + (NW().routes.some(function (r) { return !r.mech; }) ? "; R&hellip;: a combination that no mechanism names" : "") +
+      ". Click a route to pick it out in the network; click it again to show everything.</div>";
     $("#routelist").innerHTML = out;
   }
   function highlight() {             // the route picked: its boxes and arrows as they are, everything else faded
@@ -917,7 +918,7 @@
 
   // ------------------------------------------------------------------ start
   var H = Object.create(null);
-  // deep links: #ch=S&m=M2B&step=S7b&dir=fwd&mol=I7b,R2&tab=steps&pane=p&ts=3d&tab=net&route=R1A
+  // deep links: #ch=S&m=M2B&step=S7b&dir=fwd&mol=I7b,R2&tab=steps&pane=p&ts=3d&tab=net&route=M6A
   (location.hash || "").replace(/^#/, "").split("&").forEach(function (kv) {
     var q = kv.split("=");
     if (q[0]) { try { H[q[0]] = decodeURIComponent(q[1] || ""); } catch (e) { H[q[0]] = ""; } }
