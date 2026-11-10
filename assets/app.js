@@ -20,6 +20,12 @@
     try { localStorage.setItem("hpm.prefs", JSON.stringify({ mts3d: S.mts3d, ts3d: S.ts3d })); } catch (e) { /* no storage */ }
   }
 
+  /* the build tag of this page (app.js?v=...), added to the data files loaded later so that a new build is never mixed
+     with files the browser kept from an old one */
+  var VER = (function () {
+    var cs = document.currentScript, m = cs && /[?&]v=([0-9A-Za-z]+)/.exec(cs.src);
+    return m ? m[1] : "";
+  })();
   // ------------------------------------------------------------------ data files loaded on demand (works from file://)
   function load(kind, ch, id) {
     return new Promise(function (res, rej) {
@@ -28,7 +34,7 @@
       (__wait[key] = __wait[key] || []).push(res);
       if (__wait[key].length > 1) return;
       var s = document.createElement("script");
-      s.src = "data/" + kind + "/" + ch + "/" + encodeURIComponent(id) + ".js";
+      s.src = "data/" + kind + "/" + ch + "/" + encodeURIComponent(id) + ".js" + (VER ? "?v=" + VER : "");
       s.onerror = function () { delete __wait[key]; rej(new Error("no data for " + key)); };
       document.head.appendChild(s);
     });
