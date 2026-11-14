@@ -37,7 +37,9 @@ aside#famlist { width: 360px; flex: none; overflow: auto; border-right: 1px soli
                   background: var(--panel); color: var(--ink); cursor: pointer; }
 .fam .ab button.on { background: var(--accent); color: #fff; border-color: var(--accent); }
 .viewwrap { flex: 1; min-width: 0; display: flex; flex-direction: column; position: relative; }
-.zoombar { display: flex; gap: 6px; align-items: center; padding: 6px 10px; border-bottom: 1px solid var(--line); background: var(--panel); }
+.zoombar { display: flex; flex-wrap: wrap; gap: 6px; row-gap: 4px; align-items: center; padding: 6px 10px; border-bottom: 1px solid var(--line); background: var(--panel); }
+.zoombar button { white-space: nowrap; }
+#mechtitle { flex: 1 1 260px; min-width: 0; }
 .zoombar button { font: inherit; padding: 2px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--ink); cursor: pointer; }
 .zoombar span { margin-left: 8px; color: var(--muted); }
 .small { font-size: 12px; }
@@ -147,3 +149,4 @@ aside#routelist { width: 360px; flex: none; overflow: auto; border-right: 1px so
   #tabs { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
   #tabs button { flex: none; }
 }
+.zoombar [hidden] { display: none !important; }

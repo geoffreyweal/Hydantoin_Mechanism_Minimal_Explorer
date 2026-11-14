@@ -9,7 +9,7 @@
 <meta name="referrer" content="no-referrer">
 <title>Hydantoin Proposed Mechanisms</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="assets/style.css?v=20261110154614">
+<link rel="stylesheet" href="assets/style.css?v=20261115113104">
 </head>
 <body>
 <header>
@@ -34,6 +34,8 @@
     <aside id="famlist" aria-label="Mechanisms"></aside>
     <div class="viewwrap">
       <div class="zoombar"><button data-z="fit" title="Fit to width">Fit</button><button data-z="1" title="Actual size">100%</button><button data-z="+">+</button><button data-z="-">&minus;</button>
+        <span class="tslabel" title="the mechanism as drawn, or as a Gibbs free energy diagram (energies from mechflow collect)">View</span><span class="seg viewmode" role="group" aria-label="Mechanism or energy diagram"><button data-view="mech" title="the mechanism as drawn">Mechanism</button><button data-view="energy" title="the same structures and curly arrows on a Gibbs free energy diagram">Energy</button></span>
+        <span class="tslabel levellabel" hidden title="the energies of the diagram: DFT free energies, or single points (e.g. DLPNO-CCSD(T)) on the DFT structures">Level</span><span class="seg levelmode" role="group" aria-label="Level of theory of the energies" hidden></span>
         <span class="tslabel" title="the transition state above each step arrow: a 2D sketch (bonds that form or break dashed) or the 3D TS guess">TS</span><span class="seg tsmode" role="group" aria-label="Transition states above the arrows"><button data-tsm="2d" title="2D sketches of the transition states">2D</button><button data-tsm="3d" title="3D TS guesses (IDPP)">3D</button></span>
         <span id="mechtitle"></span></div>
       <div id="mechview" class="canvas"><div class="hint">Pick a mechanism on the left.</div></div>
@@ -59,13 +61,14 @@
   <section id="tab-about" class="tab"><div class="about" id="about"></div></section>
 </main>
 <div id="windows"></div>
-<script src="assets/3Dmol-min.js?v=20261110154614"></script>
-<script src="assets/boot.js?v=20261110154614"></script>
-<script src="data/meta.js?v=20261110154614"></script>
-<script src="data/xyz_O.js?v=20261110154614"></script>
-<script src="data/xyz_S.js?v=20261110154614"></script>
-<script src="data/network_O.js?v=20261110154614"></script>
-<script src="data/network_S.js?v=20261110154614"></script>
-<script src="assets/app.js?v=20261110154614"></script>
+<script src="assets/3Dmol-min.js?v=20261115113104"></script>
+<script src="assets/boot.js?v=20261115113104"></script>
+<script src="data/meta.js?v=20261115113104"></script>
+<script src="data/xyz_O.js?v=20261115113104"></script>
+<script src="data/xyz_S.js?v=20261115113104"></script>
+<script src="data/network_O.js?v=20261115113104"></script>
+<script src="data/network_S.js?v=20261115113104"></script>
+<script src="data/energy.js?v=20261115113104"></script>
+<script src="assets/app.js?v=20261115113104"></script>
 </body>
 </html>

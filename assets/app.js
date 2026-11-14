@@ -3,7 +3,7 @@
    (data/*.js, loaded as scripts so that it also works from file://) and talks to nothing else. */
 (function () {
   "use strict";
-  var S = { ch: "O", tab: "mech", mech: null, zoom: null, top: 100, mts3d: false, ts3d: false };   // TS pictures: mechanism view, step windows
+  var S = { ch: "O", tab: "mech", mech: null, zoom: null, top: 100, mts3d: false, ts3d: false, energy: false, elevel: "sp", ezoom: null };   // TS pictures: mechanism view, step windows
   var $ = function (s, el) { return (el || document).querySelector(s); };
   var $$ = function (s, el) { return Array.prototype.slice.call((el || document).querySelectorAll(s)); };
   var CHN = { O: "urea", S: "thiourea" };
@@ -13,11 +13,11 @@
   (function prefs() {                    // per-viewer conveniences only
     try {
       var p = JSON.parse(localStorage.getItem("hpm.prefs") || "{}");
-      S.mts3d = p.mts3d === true; S.ts3d = p.ts3d === true;
+      S.mts3d = p.mts3d === true; S.ts3d = p.ts3d === true; S.energy = p.energy === true; if (p.elevel === "sp" || p.elevel === "dft") S.elevel = p.elevel;
     } catch (e) { /* no storage */ }
   })();
   function savePrefs() {
-    try { localStorage.setItem("hpm.prefs", JSON.stringify({ mts3d: S.mts3d, ts3d: S.ts3d })); } catch (e) { /* no storage */ }
+    try { localStorage.setItem("hpm.prefs", JSON.stringify({ mts3d: S.mts3d, ts3d: S.ts3d, energy: S.energy, elevel: S.elevel })); } catch (e) { /* no storage */ }
   }
 
   /* the build tag of this page (app.js?v=...), added to the data files loaded later so that a new build is never mixed
@@ -313,24 +313,199 @@
     if (!mm) { $("#mechview").innerHTML = "<div class='hint'>Pick a mechanism on the left.</div>"; return; }
     if (mm.drawn === false) { $("#mechview").innerHTML = "<div class='hint'>No drawing of this mechanism yet: rebuild the website (make_website.py) to draw it.</div>"; return; }
     $("#mechview").innerHTML = "<div class='hint'>loading&hellip;</div>";
+    applyView();
     load("mech", ch, mid).then(function (svg) {
       if (S.mech !== mid || S.ch !== ch) return;
-      $("#mechview").innerHTML = svg; zoom(S.zoom || "fit"); applyMechTS();
+      if (S.energy) {
+        var ev = energyView(svg, mid, ch);
+        if (ev.msg) { $("#mechview").innerHTML = ev.msg; return; }
+        $("#mechview").innerHTML = ""; $("#mechview").appendChild(ev.svg);
+      } else $("#mechview").innerHTML = svg;
+      zoom(zoomNow() || "fit"); applyMechTS();
     }, function () {
       if (S.mech !== mid || S.ch !== ch) return;
       $("#mechview").innerHTML = "<div class='hint'>No drawing of this mechanism yet: rebuild the website (make_website.py) to draw it.</div>";
     });
   }
+  /* The drawing and the energy diagram keep their own zoom (S.zoom, S.ezoom). Fit fits a drawing to the width, and an
+     energy diagram - one long row of states and TSs - to the height, so its structures stay readable: scroll along it. */
+  function zoomNow() { return S.energy ? S.ezoom : S.zoom; }
   function zoom(z) {
     var svg = $("#mechview svg"); if (!svg) return;
     var w0 = +svg.getAttribute("width") || svg.viewBox.baseVal.width, h0 = +svg.getAttribute("height") || svg.viewBox.baseVal.height;
     if (!svg.dataset.w) { svg.dataset.w = w0; svg.dataset.h = h0; }
-    var W = +svg.dataset.w, H = +svg.dataset.h, cur = svg.getBoundingClientRect().width / W, f;
-    var cw = $("#mechview").clientWidth;
-    if (z === "fit" && cw < 50) { setTimeout(function () { zoom("fit"); }, 60); return; }
-    if (z === "fit") f = (cw - 4) / W;
+    var W = +svg.dataset.w, H = +svg.dataset.h, cur = svg.getBoundingClientRect().width / W, f, energy = svg.classList.contains("energy");
+    var cw = $("#mechview").clientWidth, chh = $("#mechview").clientHeight;
+    if (z === "fit" && (cw < 50 || (energy && chh < 50))) { setTimeout(function () { zoom("fit"); }, 60); return; }
+    if (z === "fit") f = energy ? Math.min((chh - 22) / H, (cw - 4) / W * 40) : (cw - 4) / W;
     else if (z === "+") f = cur * 1.25; else if (z === "-") f = cur / 1.25; else f = +z;
-    svg.setAttribute("width", W * f); svg.setAttribute("height", H * f); S.zoom = z === "+" || z === "-" ? f : z;
+    svg.setAttribute("width", W * f); svg.setAttribute("height", H * f);
+    var keep = z === "+" || z === "-" ? f : z;
+    if (energy) S.ezoom = keep; else S.zoom = keep;
+  }
+
+  // ------------------------------------------------------------------ energy view (the Mechanism | Energy switch)
+  /* ENERGY[ch] (data/energy.js, written by make_website.py from mechflow collect's results/): for each mechanism the
+     Gibbs free energies of its states and TSs in path order (rows: [kind, state, G]). The energy view takes the
+     drawing's own pieces - each structure with its curly arrows (g.sp) and each step's TS pictures (inside g.lk) - and
+     puts them on bars at those energies, so structures, curly arrows, colours, clicks and the TS 2D | 3D switch stay
+     as in the drawing. */
+  var SVGNS = "http://www.w3.org/2000/svg", FONT = "Helvetica, Arial, sans-serif";
+  /* The energies of one chalcogen can come at two levels (ENERGY[ch].sp: single points such as DLPNO-CCSD(T) on the DFT
+     structures, ENERGY[ch].dft: the DFT free energies); the Level switch picks one, and shows only those that exist. */
+  function levels(ch) { var E = window.ENERGY && window.ENERGY[ch]; return E ? Object.keys(E).filter(function (k) { return E[k] && E[k].mech; }) : []; }
+  function curLevel(ch) { var L = levels(ch); return L.indexOf(S.elevel) >= 0 ? S.elevel : (L[0] || null); }
+  function energySet(ch) { var k = curLevel(ch); return k ? window.ENERGY[ch][k] : null; }
+  function applyView() {
+    $$(".viewmode button").forEach(function (b) { var on = (b.dataset.view === "energy") === S.energy; b.classList.toggle("on", on); b.setAttribute("aria-pressed", on ? "true" : "false"); });
+    var L = levels(S.ch), cur = curLevel(S.ch), box = $(".levelmode");
+    box.innerHTML = L.map(function (k) {
+      var E = window.ENERGY[S.ch][k];
+      return "<button data-level='" + esc(k) + "' class='" + (k === cur ? "on" : "") + "' aria-pressed='" + (k === cur) + "' title='" + esc(E.level || k) + "'>" + esc(E.label || k) + "</button>";
+    }).join("");
+    box.hidden = $(".levellabel").hidden = !(S.energy && L.length);
+    $(".zoombar button[data-z=fit]").title = S.energy ? "Fit to the height (scroll along the diagram)" : "Fit to width";
+  }
+  function setView(energy) { S.energy = !!energy; savePrefs(); applyView(); if (S.mech) showMech(S.mech); }
+  function setLevel(k) { S.elevel = k; savePrefs(); applyView(); if (S.mech && S.energy) showMech(S.mech); }
+  function energyOf(ch, mid) { var E = energySet(ch); return E && E.mech && has(E.mech, mid) ? E.mech[mid] : null; }
+  function el(tag, attrs, text) {
+    var e = document.createElementNS(SVGNS, tag);
+    Object.keys(attrs || {}).forEach(function (k) { e.setAttribute(k, attrs[k]); });
+    if (text != null) e.textContent = text;
+    return e;
+  }
+  function txt(x, y, s, size, weight, fill, anchor) {
+    return el("text", { x: x.toFixed(1), y: y.toFixed(1), "font-family": FONT, "font-size": size, "font-weight": weight || "normal",
+                        fill: fill || "#111", "text-anchor": anchor || "middle" }, s);
+  }
+  function fmtG(g) { return g == null ? "?" : (Math.round(g * 10) / 10).toFixed(1); }
+  function niceStep(range) {
+    var raw = range / 6, p = Math.pow(10, Math.floor(Math.log(raw) / Math.LN10)), f = raw / p;
+    return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * p;
+  }
+  function energyView(svgText, mid, ch) {
+    var E = energySet(ch), P = energyOf(ch, mid);
+    var how = " The energy diagrams come from <code>mechflow collect</code>: copy each project's <code>results/</code> folder " +
+              "back from the cluster and run <code>make_website.py --energies-only</code> (see About). <b>View: Mechanism</b> shows the drawing.";
+    if (!E) return { msg: "<div class='hint'>No energies for the " + esc(CHN[ch]) + " yet." + how + "</div>" };
+    if (!P) return { msg: "<div class='hint'>No " + esc(E.label) + " energies for " + esc(mid) + " (" + esc(CHN[ch]) + ") yet." + how + "</div>" };
+    var mins = P.rows.filter(function (r) { return r[0] !== "ts"; }), tss = P.rows.filter(function (r) { return r[0] === "ts"; });
+    var holder = document.createElement("div");
+    holder.style.cssText = "position:absolute;left:-100000px;top:0;visibility:hidden";
+    document.body.appendChild(holder);
+    try {
+      var src = new DOMParser().parseFromString(svgText, "image/svg+xml").documentElement;
+      var live = document.importNode(src, true); holder.appendChild(live);
+      var kids = Array.prototype.slice.call(live.children);
+      var sps = kids.filter(function (g) { return g.matches("g.sp"); }), lks = kids.filter(function (g) { return g.matches("g.lk"); });
+      var steps = lks.map(function (g) { return g.getAttribute("data-step"); });
+      var fits = sps.length === mins.length && lks.length === tss.length &&
+                 steps.every(function (s, k) { return tss[k][1] === "TS" + s.slice(1); });
+      if (!fits) return { msg: "<div class='hint'>The energies of " + esc(mid) + " (" + esc(CHN[ch]) + ") do not match its drawing: they " +
+                               "are from another version of the project. Run <code>mechflow collect</code> again and rebuild the energies.</div>" };
+      var spBox = sps.map(function (g) { var b = g.getBBox(); return { x: b.x, y: b.y, w: b.width, h: b.height }; });
+      var tsInfo = lks.map(function (lk) {
+        var stroke = lk.querySelector("g[stroke]");
+        var imgs = Array.prototype.slice.call(lk.querySelectorAll(".tsimg")).map(function (im) {
+          var hid = im.getAttribute("display"); im.removeAttribute("display");
+          var b = im.getBBox();
+          if (hid) im.setAttribute("display", hid);
+          im.removeAttribute("transform");
+          return { el: im, x: b.x, y: b.y, w: b.width, h: b.height };
+        });
+        return { step: lk.getAttribute("data-step"), dir: lk.getAttribute("data-dir"), col: stroke ? stroke.getAttribute("stroke") : "#707070", imgs: imgs };
+      });
+      // ---- columns: state, TS, state, TS ... (each picture sits on its bar)
+      var KS = 0.8, KT = 0.8, PAD = 10, GAP = 44, AX = 104, TOP = 104;
+      var cols = [], k, j;
+      for (k = 0; k < mins.length; k++) {
+        cols.push({ kind: "min", i: k, g: mins[k][2], w: Math.max(spBox[k].w * KS, 96) + 2 * PAD, up: spBox[k].h * KS + 12, down: 46 });
+        if (k < tss.length) {
+          var ims = tsInfo[k].imgs, iw = 60, ih = 20;
+          ims.forEach(function (m) { iw = Math.max(iw, m.w); ih = Math.max(ih, m.h); });
+          var lim = !!P.limiting && P.limiting === tss[k][1];
+          cols.push({ kind: "ts", i: k, g: tss[k][2], w: Math.max(iw * KT, 92) + 2 * PAD, up: ih * KT + 12, down: lim ? 78 : 62, lim: lim });
+        }
+      }
+      if (cols.every(function (c) { return c.g == null; }))
+        return { msg: "<div class='hint'>None of the states of " + esc(mid) + " (" + esc(CHN[ch]) + ") has an energy yet." + how + "</div>" };
+      cols.forEach(function (c, n) {             // a state or TS with no energy yet sits between its neighbours, dashed
+        if (c.g != null) { c.gy = c.g; return; }
+        var a = null, b = null, q;
+        for (q = n - 1; q >= 0 && a === null; q--) if (cols[q].g != null) a = cols[q].g;
+        for (q = n + 1; q < cols.length && b === null; q++) if (cols[q].g != null) b = cols[q].g;
+        c.gy = a !== null && b !== null ? (a + b) / 2 : (a !== null ? a : b); c.missing = true;
+      });
+      var gs = cols.map(function (c) { return c.gy; }), gmax = Math.max.apply(null, gs), gmin = Math.min.apply(null, gs);
+      if (gmax - gmin < 20) { var mid0 = (gmax + gmin) / 2; gmax = mid0 + 10; gmin = mid0 - 10; }
+      var ppu = Math.min(560 / (gmax - gmin), 12), shift = TOP;           // pixels per energy unit
+      cols.forEach(function (c) { c.y0 = (gmax - c.gy) * ppu; shift = Math.max(shift, TOP + c.up - c.y0); });
+      var yOf = function (g) { return (gmax - g) * ppu + shift; };
+      var x = AX + 30;
+      cols.forEach(function (c) { c.y = yOf(c.gy); c.x = x; x += c.w + GAP; });
+      var W = Math.round(x - GAP + 40), H = 0;
+      cols.forEach(function (c) { H = Math.max(H, c.y + c.down); });
+      H = Math.round(Math.max(H, yOf(gmin) + 30) + 24);
+      var out = el("svg", { xmlns: SVGNS, width: W, height: H, viewBox: "0 0 " + W + " " + H, "class": "energy" });
+      out.appendChild(el("rect", { width: "100%", height: "100%", fill: "white" }));
+      out.appendChild(txt(40, 40, "Gibbs free energy diagram of " + mid + " (" + CHN[ch] + "), " + E.label, 26, "bold", "#111", "start"));
+      out.appendChild(txt(40, 66, E.reference || ("Gibbs free energies in " + E.units + " relative to the reactants."), 15, "normal", "#222", "start"));
+      out.appendChild(txt(40, 87, (E.level ? "Energies: " + E.level + ". " : "") + "From mechflow collect (" + E.source + ", " + E.date + ")." +
+                          (P.validated === false ? " Not every step is validated yet (mechflow status)." : ""), 13, "normal", "#666", "start"));
+      // ---- energy axis
+      var unit = E.units || "kJ/mol", step = niceStep(gmax - gmin), ax = el("g", { "class": "axis" });
+      ax.appendChild(el("line", { x1: AX, x2: AX, y1: (yOf(gmax) - 14).toFixed(1), y2: (yOf(gmin) + 14).toFixed(1), stroke: "#444", "stroke-width": 1.5 }));
+      for (var v = Math.ceil(gmin / step) * step; v <= gmax + 1e-9; v += step) {
+        var yy = yOf(v);
+        ax.appendChild(el("line", { x1: AX - 6, x2: AX, y1: yy.toFixed(1), y2: yy.toFixed(1), stroke: "#444", "stroke-width": 1.5 }));
+        ax.appendChild(txt(AX - 10, yy + 5, String(Math.round(v * 10) / 10), 14, "normal", "#333", "end"));
+        if (Math.abs(v) < 1e-9) ax.appendChild(el("line", { x1: AX, x2: W - 20, y1: yy.toFixed(1), y2: yy.toFixed(1), stroke: "#d0d0d0", "stroke-width": 1, "stroke-dasharray": "3 5" }));
+      }
+      var ymid = (yOf(gmax) + yOf(gmin)) / 2, lab = txt(AX - 66, ymid, "ΔG / " + unit, 16, "bold", "#333", "middle");
+      lab.setAttribute("transform", "rotate(-90 " + (AX - 66) + " " + ymid.toFixed(1) + ")");
+      ax.appendChild(lab);
+      out.appendChild(ax);
+      // ---- dashed lines from bar to bar, behind everything
+      for (j = 0; j + 1 < cols.length; j++) {
+        var a = cols[j], b = cols[j + 1];
+        out.appendChild(el("line", { x1: (a.x + a.w - PAD).toFixed(1), y1: a.y.toFixed(1), x2: (b.x + PAD).toFixed(1), y2: b.y.toFixed(1),
+                                     stroke: "#9a9a9a", "stroke-width": 1.6, "stroke-dasharray": "6 4", "class": "conn" }));
+      }
+      // ---- the bars with their structures, TS pictures and labels
+      var lastMin = null;
+      cols.forEach(function (c) {
+        var cx = c.x + c.w / 2, colr = c.kind === "ts" ? tsInfo[c.i].col : "#111";
+        var bar = el("line", { x1: (c.x + PAD).toFixed(1), x2: (c.x + c.w - PAD).toFixed(1), y1: c.y.toFixed(1), y2: c.y.toFixed(1),
+                               stroke: c.missing ? "#aaaaaa" : colr, "stroke-width": 3.5, "stroke-linecap": "round",
+                               "class": "lvl " + c.kind, "data-g": c.g == null ? "" : String(c.g) });
+        if (c.missing) bar.setAttribute("stroke-dasharray", "7 5");
+        if (c.kind === "min") {
+          var g = sps[c.i], bx = spBox[c.i];
+          g.setAttribute("transform", "translate(" + (cx - (bx.x + bx.w / 2) * KS).toFixed(1) + "," + (c.y - 8 - (bx.y + bx.h) * KS).toFixed(1) + ") scale(" + KS + ")");
+          out.appendChild(g); out.appendChild(bar);
+          out.appendChild(txt(cx, c.y + 22, (g.getAttribute("data-ids") || "").split(" ").join(" + "), 16, "bold"));
+          out.appendChild(txt(cx, c.y + 40, c.missing ? "not yet" : fmtG(c.g), 14, "normal", c.missing ? "#999" : "#333"));
+          if (!c.missing) lastMin = c.g;
+          return;
+        }
+        var info = tsInfo[c.i], wrap = el("g", { "class": "lk", "data-step": info.step, "data-dir": info.dir });
+        wrap.appendChild(el("rect", { "class": "hit", x: c.x.toFixed(1), y: (c.y - c.up).toFixed(1), width: c.w.toFixed(1), height: (c.up + c.down - 8).toFixed(1), fill: "transparent" }));
+        info.imgs.forEach(function (m) {
+          var pos = el("g", { transform: "translate(" + (cx - (m.x + m.w / 2) * KT).toFixed(1) + "," + (c.y - 8 - (m.y + m.h) * KT).toFixed(1) + ") scale(" + KT + ")" });
+          pos.appendChild(m.el); wrap.appendChild(pos);
+        });
+        wrap.appendChild(bar);
+        wrap.appendChild(txt(cx, c.y + 22, tss[c.i][1], 16, "bold", info.col));
+        wrap.appendChild(txt(cx, c.y + 40, c.missing ? "not yet" : fmtG(c.g), 14, "normal", c.missing ? "#999" : "#333"));
+        if (!c.missing && lastMin !== null) wrap.appendChild(txt(cx, c.y + 56, "ΔG‡ " + fmtG(c.g - lastMin), 12.5, "normal", "#666"));
+        if (c.lim) wrap.appendChild(txt(cx, c.y + 72, "rate-limiting", 12.5, "bold", "#b42318"));
+        out.appendChild(wrap);
+      });
+      return { svg: out };
+    } finally {
+      holder.remove();
+    }
   }
   $("#famlist").addEventListener("click", function (e) {
     var b = e.target.closest("button[data-m]"); if (b) { showMech(b.getAttribute("data-m")); return; }
@@ -342,6 +517,8 @@
   });
   $$(".zoombar button[data-z]").forEach(function (b) { b.onclick = function () { zoom(b.dataset.z); }; });
   $$(".tsmode button").forEach(function (b) { b.onclick = function () { setMechTS(b.dataset.tsm === "3d"); }; });
+  $$(".viewmode button").forEach(function (b) { b.onclick = function () { setView(b.dataset.view === "energy"); }; });
+  $(".levelmode").addEventListener("click", function (e) { var b = e.target.closest("button[data-level]"); if (b) setLevel(b.dataset.level); });
 
   // ------------------------------------------------------------------ network tab (as on the main study's site: pan / zoom, drag boxes)
   /* NETWORK[ch] (data/network_<ch>.js, written by make_website.py): the network of every mechanism as Graphviz drew it
@@ -886,7 +1063,7 @@
       "mechflow projects <code>Ch_O</code> and <code>Ch_S</code>, which are used for the DFT calculations.</p>" +
       META.about.sections.map(function (s) { return "<h2>" + esc(s[0]) + "</h2>" + s.slice(1).map(function (p) { return "<p>" + esc(p) + "</p>"; }).join(""); }).join("") +
       "<h2>Links</h2><p>The address can open a view directly, for example <code>#ch=S&amp;m=M2B&amp;step=S7b</code>, <code>#ch=O&amp;mol=I7a</code> " +
-      "or <code>#m=M1A&amp;ts=3d</code>.</p>";
+      "or <code>#m=M1A&amp;ts=3d</code>; <code>#m=M1A&amp;view=energy&amp;level=dft</code> opens its energy diagram with the DFT energies (<code>level=sp</code>: the single points).</p>";
   }
 
   // ------------------------------------------------------------------ top bar
@@ -895,7 +1072,7 @@
     S.tab = t;
     $$("#tabs button").forEach(function (b) { b.classList.toggle("on", b.dataset.tab === t); });
     $$(".tab").forEach(function (s) { s.classList.toggle("on", s.id === "tab-" + t); });
-    if (t === "mech" && S.zoom === "fit") zoom("fit");
+    if (t === "mech" && zoomNow() === "fit") zoom("fit");
     if (t === "net") { showNet(); if (net.needFit) netFit(); }
   }
   function setCh(c) {
@@ -914,17 +1091,19 @@
     if (S.tab === "net") { netFind(query()); if (up && routeOf(up)) pickRoute(up); return; }
     if (up && baseMech(up)) { setTab("mech"); showMech(up); }
   });
-  window.addEventListener("resize", function () { if (S.zoom === "fit") zoom("fit"); if (S.tab === "net" && net.el && !moves()) netFit(); });
+  window.addEventListener("resize", function () { if (zoomNow() === "fit") zoom("fit"); if (S.tab === "net" && net.el && !moves()) netFit(); });
 
   // ------------------------------------------------------------------ start
   var H = Object.create(null);
-  // deep links: #ch=S&m=M2B&step=S7b&dir=fwd&mol=I7b,R2&tab=steps&pane=p&ts=3d&tab=net&route=M6A
+  // deep links: #ch=S&m=M2B&step=S7b&dir=fwd&mol=I7b,R2&tab=steps&pane=p&ts=3d&tab=net&route=M6A&view=energy&level=dft
   (location.hash || "").replace(/^#/, "").split("&").forEach(function (kv) {
     var q = kv.split("=");
     if (q[0]) { try { H[q[0]] = decodeURIComponent(q[1] || ""); } catch (e) { H[q[0]] = ""; } }
   });
   if (H.ch === "S" || H.ch === "O") { S.ch = H.ch; $$("#chsel button").forEach(function (b) { b.classList.toggle("on", b.dataset.ch === S.ch); }); }
   if (H.ts === "2d" || H.ts === "3d") S.mts3d = H.ts === "3d";       // #ts=: the mechanism view
+  if (H.view === "energy" || H.view === "mech") S.energy = H.view === "energy";   // #view=: drawing or energy diagram
+  if (H.level === "sp" || H.level === "dft") S.elevel = H.level;                  // #level=: the energies' level
   famList(); tables(); about(); applyMechTS();
   showMech(baseMech(H.m) ? H.m : firstMech());
   showNet();
