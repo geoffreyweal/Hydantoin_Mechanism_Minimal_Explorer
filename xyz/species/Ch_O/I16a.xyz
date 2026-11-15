@@ -1,5 +1,5 @@
 43
-I16a  2-(methylimino)-oxazolidine-4,5-diol (O on C4, N-Cy on C5)  charge=0 mult=1  |  key atoms: 0 C5, 1 C4, 2 O5, 3 O4, 4 H4, 5 C2, 6 O2, 7 N(Cy), 8 N(Me), 9 CH(Cy), 10 CH3, 11 C(ipso)
+I16a  2-(methylimino)-oxazolidine-4,5-diol (O on C4, N-Cy on C5)  charge=0 mult=1  |  key atoms: 0 C5, 1 C4, 2 O5, 3 O4, 4 H4, 5 C2, 6 O2, 7 N(Cy), 8 N(Me), 9 CH(Cy), 10 CH3, 11 C(ipso), 23 H(X)
 C      -1.20606152      0.60372171     -0.69642281
 C      -1.93190205      1.97710888     -0.81094883
 O      -0.75304649      0.20485880     -1.98873121

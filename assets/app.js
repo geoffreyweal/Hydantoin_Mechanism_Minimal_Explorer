@@ -173,7 +173,12 @@
         (used ? "in " + used.toString() + (used === 1 ? " mechanism" : " mechanisms") + " (" + sp.used_by.map(esc).join(", ") + ")" :
           sp.start_of.length ? "SCAN start of " + sp.start_of.map(esc).join(", ") : "in no mechanism") +
         " &middot; <a href='xyz/species/Ch_" + S.ch + "/" + encodeURIComponent(sid) + ".xyz' download>xyz</a></div>";
-    }).join("") + "<div class='note'>Starting structures (force field), not DFT. Open an xyz file in ASE with <code>ase gui " + esc(ids[0]) + ".xyz</code>.</div>";
+    }).join("") + "<div class='note'>" + (function () {
+      var d = ids.filter(function (sid) { return baseSpecies(sid).dft; }), f = ids.filter(function (sid) { return !baseSpecies(sid).dft; });
+      return !f.length ? "DFT-optimised structures (&omega;B97X-D3BJ/def2-TZVP, CPCM chloroform). " :
+        !d.length ? "Starting structures (force field), not DFT (no DFT optimisation has finished well yet). " :
+        "DFT-optimised: " + d.map(esc).join(", ") + "; starting structures (force field, not DFT): " + f.map(esc).join(", ") + ". ";
+    })() + "Open an xyz file in ASE with <code>ase gui " + esc(ids[0]) + ".xyz</code>.</div>";
   }
 
   // ------------------------------------------------------------------ a step: diagram, 3D path (IDPP / ASE NEB), info
@@ -836,22 +841,33 @@
       var rs = N.routes.filter(function (r) { return r.product === prod; });
       out += "<div class='group'><h3>Routes to " + esc(prod) + " (" + esc(META.iso[prod] || "") + ")" +
         (prod === major ? " <span class='bdg obs'>observed major</span>" : "") + "</h3>";
+      var others = 0, shut = false;
       rs.forEach(function (r) {
         var words = r.id + " " + (r.mech || "") + " " + r.text + " " + r.steps.join(" ");
         if (q && chText(words).toLowerCase().indexOf(q) < 0) return;
+        if (!r.mech && !others++) {        // the combinations that no mechanism names: folded away (there are many)
+          var nOther = rs.filter(function (x) { return !x.mech; }).length;
+          shut = !q && net.route !== r.id && !rs.some(function (x) { return !x.mech && x.id === net.route; });
+          out += "<details class='others'" + (shut ? "" : " open") + "><summary>" + nOther + " other combination" + (nOther === 1 ? "" : "s") +
+            " (no mechanism names them)</summary>";
+        }
         out += "<button class='route" + (r.mech ? " named" : "") + (net.route === r.id ? " on" : "") + "' data-r='" + esc(r.id) + "'>" +
           "<b>" + esc(r.id) + "</b>" + (r.mech ? "" : " <span class='iso'>(no mechanism)</span>") +
+          (r.fails && r.fails.length ? " <span class='rfail' title='DFT showed these intermediates do not hold as drawn'>&#10007; " +
+            esc(r.fails.join(", ")) + "</span>" : "") +
           (NE && NE.top[r.id] ? " <span class='etop" + (NE.best[r.product] === r.id ? " best" : "") + "' title='the highest TS on this route" +
             (NE.top[r.id].complete ? "" : " (not every TS has an energy yet)") + "'>" + esc(NE.top[r.id].ts) + " " + fmtG(NE.top[r.id].g) +
             (NE.top[r.id].complete ? "" : "?") + (NE.best[r.product] === r.id ? " &#9733; lowest" : "") + "</span>" : "") +
           "<span class='ver'>" + esc(chText(r.text)) + "</span></button>";
       });
+      if (others) out += "</details>";
       out += "</div>";
     });
     out += "<div class='famnote'>Three changes can each happen at once or one step at a time: the " + esc(CHN[S.ch]) + " &rarr; iso" +
       esc(CHN[S.ch]) + " (S17, or S23 + S24), the 1,3-shift (S7, or S8 + S9) and the enol &rarr; product (S16, or S21 + S22). " +
-      "Any combination can happen, and each combination is a mechanism of its own (M2 and M4&ndash;M10 through the iso" + esc(CHN[S.ch]) +
-      ", M1 and M3 through the N-adduct)" + (NW().routes.some(function (r) { return !r.mech; }) ? "; R&hellip;: a combination that no mechanism names" : "") +
+      "M1 and M3 go through the N-adduct, M2 and M4&ndash;M10 through the iso" + esc(CHN[S.ch]) + ". M11&ndash;M18 go round the " +
+      "intermediates that DFT showed do not hold as drawn (crossed out in red; &#10007; marks a route through one)" +
+      (NW().routes.some(function (r) { return !r.mech; }) ? "; R&hellip;: a combination that no mechanism names" : "") +
       ". Click a route to pick it out in the network; click it again to show everything.</div>";
     $("#routelist").innerHTML = out;
   }

@@ -1,5 +1,5 @@
 43
-I16a  2-(methylimino)-thiazolidine-4,5-diol (S on C4, N-Cy on C5)  charge=0 mult=1  |  key atoms: 0 C5, 1 C4, 2 O5, 3 O4, 4 H4, 5 C2, 6 S2, 7 N(Cy), 8 N(Me), 9 CH(Cy), 10 CH3, 11 C(ipso)
+I16a  2-(methylimino)-thiazolidine-4,5-diol (S on C4, N-Cy on C5)  charge=0 mult=1  |  key atoms: 0 C5, 1 C4, 2 O5, 3 O4, 4 H4, 5 C2, 6 S2, 7 N(Cy), 8 N(Me), 9 CH(Cy), 10 CH3, 11 C(ipso), 23 H(X)
 C       1.28898088     -0.85023997      0.17339114
 C       2.23129536     -1.61818200      1.16386243
 O       0.76171213     -1.81770453     -0.74143700

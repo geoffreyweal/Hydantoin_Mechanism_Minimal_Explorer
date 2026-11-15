@@ -159,3 +159,11 @@ aside#routelist { width: 360px; flex: none; overflow: auto; border-right: 1px so
 #netview svg.land g.edge:hover polyline:not(.hit) { stroke-width: 4; }
 #netview svg.land g.hl line.lvl { stroke: #e67e22 !important; stroke-width: 9 !important; }
 .win .svgbox svg.energy.step { max-width: 100%; height: auto; }
+/* 2026-11-15: routes through an intermediate that DFT showed does not hold as drawn; the unnamed combinations folded */
+:root { --bad: #c62828; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bad: #ef8a8a; } }
+:root[data-theme="dark"] { --bad: #ef8a8a; }
+#routelist .rfail { color: var(--bad); font-weight: 600; font-size: 11.5px; }
+#routelist details.others { margin: 6px 10px 2px; }
+#routelist details.others > summary { cursor: pointer; font-size: 12px; color: var(--muted); padding: 4px 0; }
+#routelist details.others button.route { width: 100%; margin: 3px 0; }
