@@ -894,7 +894,7 @@
     });
     out += "<div class='famnote'>Three changes can each happen at once or one step at a time: the " + esc(CHN[S.ch]) + " &rarr; iso" +
       esc(CHN[S.ch]) + " (S17, or S23 + S24), the 1,3-shift (S7, or S8 + S9) and the enol &rarr; product (S16, or S21 + S22). " +
-      "M1 and M3 go through the N-adduct, M2 and M4&ndash;M10 through the iso" + esc(CHN[S.ch]) + ". M11&ndash;M18 go round the " +
+      "M1 and M3 go through the N-adduct, M2 and M4&ndash;M10 through the iso" + esc(CHN[S.ch]) + ". M11&ndash;M20 go round the " +
       "intermediates that DFT showed do not hold as drawn (crossed out in red; &#10007; marks a route through one)" +
       (NW().routes.some(function (r) { return !r.mech; }) ? "; R&hellip;: a combination that no mechanism names" : "") +
       ". Click a route to pick it out in the network; click it again to show everything.</div>";
