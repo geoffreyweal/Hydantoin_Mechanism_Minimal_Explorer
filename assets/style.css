@@ -167,3 +167,7 @@ aside#routelist { width: 360px; flex: none; overflow: auto; border-right: 1px so
 #routelist details.others { margin: 6px 10px 2px; }
 #routelist details.others > summary { cursor: pointer; font-size: 12px; color: var(--muted); padding: 4px 0; }
 #routelist details.others button.route { width: 100%; margin: 3px 0; }
+.xfail { color: var(--bad); font-weight: 600; font-size: 12px; }
+.controls label.showall { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); cursor: pointer; white-space: nowrap; }
+#netview.hidebad g.dft-fail { display: none; }
+#netview g.xbox line { stroke: #c62828; stroke-width: 6; stroke-linecap: round; opacity: 0.8; }

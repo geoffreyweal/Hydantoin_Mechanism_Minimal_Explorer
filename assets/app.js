@@ -3,7 +3,7 @@
    (data/*.js, loaded as scripts so that it also works from file://) and talks to nothing else. */
 (function () {
   "use strict";
-  var S = { ch: "O", tab: "mech", mech: null, zoom: null, top: 100, mts3d: false, ts3d: false, energy: false, elevel: "sp", ezoom: null, nenergy: false, senergy: false };   // TS pictures: mechanism view, step windows
+  var S = { ch: "O", tab: "mech", mech: null, zoom: null, top: 100, mts3d: false, ts3d: false, energy: false, elevel: "sp", ezoom: null, nenergy: false, senergy: false, showall: false };   // TS pictures: mechanism view, step windows
   var $ = function (s, el) { return (el || document).querySelector(s); };
   var $$ = function (s, el) { return Array.prototype.slice.call((el || document).querySelectorAll(s)); };
   var CHN = { O: "urea", S: "thiourea" };
@@ -14,11 +14,11 @@
     try {
       var p = JSON.parse(localStorage.getItem("hpm.prefs") || "{}");
       S.mts3d = p.mts3d === true; S.ts3d = p.ts3d === true; S.energy = p.energy === true; if (p.elevel === "sp" || p.elevel === "dft") S.elevel = p.elevel;
-      S.nenergy = p.nenergy === true; S.senergy = p.senergy === true;
+      S.nenergy = p.nenergy === true; S.senergy = p.senergy === true; S.showall = p.showall === true;
     } catch (e) { /* no storage */ }
   })();
   function savePrefs() {
-    try { localStorage.setItem("hpm.prefs", JSON.stringify({ mts3d: S.mts3d, ts3d: S.ts3d, energy: S.energy, elevel: S.elevel, nenergy: S.nenergy, senergy: S.senergy })); } catch (e) { /* no storage */ }
+    try { localStorage.setItem("hpm.prefs", JSON.stringify({ mts3d: S.mts3d, ts3d: S.ts3d, energy: S.energy, elevel: S.elevel, nenergy: S.nenergy, senergy: S.senergy, showall: S.showall })); } catch (e) { /* no storage */ }
   }
 
   /* the build tag of this page (app.js?v=...), added to the data files loaded later so that a new build is never mixed
@@ -306,7 +306,11 @@
   function query() { return ($("#q").value || "").trim().toLowerCase(); }
   function famList() {                // one entry per family, with a button for its A (-> P1a) and its B (-> P1b) version
     var q = query(), mm = M().mechanisms, F = META.families, major = META.major[S.ch], out = "", byFam = {};
-    Object.keys(mm).sort(nat).forEach(function (mid) { var f = mm[mid].family || mid; (byFam[f] = byFam[f] || []).push(mid); });
+    var hidden = 0;
+    Object.keys(mm).sort(nat).forEach(function (mid) {
+      if (!mechOK(mid)) { hidden++; return; }
+      var f = mm[mid].family || mid; (byFam[f] = byFam[f] || []).push(mid);
+    });
     var fams = Object.keys(byFam).sort(nat).filter(function (f) {
       var info = F[f] || {}, words = f + " " + (info.title || "") + " " + (info.text || "") + " " +
         byFam[f].map(function (mid) { return mid + " " + mm[mid].name + " " + mm[mid].product + " " + mm[mid].steps.join(" "); }).join(" ");
@@ -326,10 +330,16 @@
         }).join("") + "</div></div>";
     });
     if (!fams.length) out += "<div class='hint'>No mechanism matches.</div>";
-    out += "</div><div class='famnote'>" + esc(META.note[S.ch]) + " A = Cy on the same side as Ph (P1a, 1-Cy-3-Me); B = Cy on the other side (P1b, 1-Me-3-Cy).</div>";
+    out += "</div><div class='famnote'>" + (hidden ? "<span class='xfail'>" + hidden + " mechanism" + (hidden === 1 ? " is" : "s are") +
+      " hidden: they go through an intermediate that DFT showed does not hold (Show all, at the top, shows them).</span> " : "") +
+      esc(META.note[S.ch]) + " A = Cy on the same side as Ph (P1a, 1-Cy-3-Me); B = Cy on the other side (P1b, 1-Me-3-Cy).</div>";
     $("#famlist").innerHTML = out;
   }
-  function firstMech() { return Object.keys(M().mechanisms).sort(nat)[0] || null; }
+  // by default what DFT showed will not work is hidden (crossed-out intermediates, the steps that make or use them, and
+  // the mechanisms and routes through them); the Show all switch shows everything (Geoff, 2026-11-15)
+  function hideBad() { return !S.showall; }
+  function mechOK(mid) { var m = M().mechanisms[mid]; return !hideBad() || !(m && m.fails && m.fails.length); }
+  function firstMech() { var ks = Object.keys(M().mechanisms).sort(nat); return ks.filter(mechOK)[0] || ks[0] || null; }
   function showMech(mid) {
     var mm = baseMech(mid), ch = S.ch;
     S.mech = mm ? mid : null; famList();
@@ -694,7 +704,7 @@
           var g = has(NE.edgeG, "e" + i) ? NE.edgeG["e" + i] : null, yt = g != null ? yOf(g) : Math.min(ya, yb) - 30;
           var tx = (xa + xb) / 2 + (j - (list.length - 1) / 2) * Math.min(44, Math.max(0, (xb - xa - TW) / Math.max(list.length, 1)));
           var col = g == null ? "#aaaaaa" : e.colour, wdt = e.kind === "once" ? 3.4 : 2;
-          var grp = el("g", { "class": "edge k-e" + i, id: "st|" + e.step + "|" + e.dir });
+          var grp = el("g", { "class": "edge k-e" + i + (e.fail && e.fail.length ? " dft-fail" : ""), id: "st|" + e.step + "|" + e.dir });
           var pts = xa.toFixed(1) + "," + ya.toFixed(1) + " " + (tx - TW / 2).toFixed(1) + "," + yt.toFixed(1) + " " + (tx + TW / 2).toFixed(1) + "," + yt.toFixed(1) + " " + xb.toFixed(1) + "," + yb.toFixed(1);
           grp.appendChild(el("polyline", { points: pts, fill: "none", stroke: col, "stroke-width": wdt, "stroke-linejoin": "round", opacity: 0.85, "stroke-dasharray": g == null ? "6 5" : "none" }));
           grp.appendChild(el("polyline", { points: pts, fill: "none", stroke: "transparent", "stroke-width": 16, "class": "hit", "pointer-events": "stroke" }));
@@ -709,7 +719,7 @@
       out.appendChild(front);
       // the states: a bar at the energy, the structures above it, the name and energy below
       Object.keys(P.pos).forEach(function (n) {
-        var nd = nodes[n], x0 = P.pos[n], y = yOf(gy[n]), miss = !has(NE.nodeG, n), grp = el("g", { "class": "node k-" + n, id: "sp|" + nd.sp.join(" ") });
+        var nd = nodes[n], x0 = P.pos[n], y = yOf(gy[n]), miss = !has(NE.nodeG, n), grp = el("g", { "class": "node k-" + n + (nd.fail && nd.fail.length ? " dft-fail" : ""), id: "sp|" + nd.sp.join(" ") });
         var cx = x0 + SW / 2, s = nd.w && nd.h ? Math.min((SW - 16) / nd.w, PIC / nd.h, 1) : 0;
         grp.appendChild(el("rect", { "class": "hit", x: x0.toFixed(1), y: (y - PIC - 10).toFixed(1), width: SW, height: PIC + 52, fill: "transparent" }));
         if (nd.img && s) grp.appendChild(el("image", { href: nd.img + (VER ? "?v=" + VER : ""), x: (cx - nd.w * s / 2).toFixed(1), y: (y - 8 - nd.h * s).toFixed(1),
@@ -790,8 +800,28 @@
     }, { passive: false });
   }
   function NW() { return (window.NETWORK || {})[S.ch] || null; }
+  function crossBoxes(svg) {         // a red cross over each box that DFT showed does not hold as drawn
+    var ns = "http://www.w3.org/2000/svg";
+    $$("g.node.dft-fail", svg).forEach(function (g) {
+      var xs = [], ys = [];
+      $$("polygon", g).forEach(function (p) {
+        (p.getAttribute("points") || "").trim().split(/\s+/).forEach(function (pt) { var a = pt.split(","); if (a.length === 2) { xs.push(+a[0]); ys.push(+a[1]); } });
+      });
+      if (!xs.length) return;
+      var x0 = Math.min.apply(null, xs), x1 = Math.max.apply(null, xs), y0 = Math.min.apply(null, ys), y1 = Math.max.apply(null, ys);
+      var G = document.createElementNS(ns, "g");
+      G.setAttribute("class", "xbox"); G.setAttribute("pointer-events", "none");
+      [[x0, y0, x1, y1], [x1, y0, x0, y1]].forEach(function (c) {
+        var l = document.createElementNS(ns, "line");
+        l.setAttribute("x1", c[0]); l.setAttribute("y1", c[1]); l.setAttribute("x2", c[2]); l.setAttribute("y2", c[3]);
+        G.appendChild(l);
+      });
+      g.appendChild(G);
+    });
+  }
   function showNet() {               // the network of the chalcogen shown (drawn once per chalcogen change)
     wireNet();
+    $("#netview").classList.toggle("hidebad", hideBad());
     var N = NW();
     if (!N) { $("#netview").innerHTML = "<div class='hint'>No network yet: rebuild the website (make_website.py).</div>"; return; }
     var want = S.nenergy ? "land|" + S.ch + "|" + curLevel(S.ch) : S.ch;
@@ -821,6 +851,7 @@
       svg.removeAttribute("width"); svg.removeAttribute("height"); svg.style.width = "100%"; svg.style.height = "100%";
       net.el = svg;
       net.layout = S.ch;
+      crossBoxes(svg);
       net.geo = buildGeo(svg);
       applyMoves();                  // boxes moved by hand earlier in this network (this page only, until reload)
       var b = svg.viewBox.baseVal;
@@ -838,7 +869,7 @@
   function routeList() {             // every route to P1a and to P1b: the named mechanisms first, then the other combinations
     var N = NW(), q = query(), major = META.major[S.ch], out = "", NE = S.nenergy ? netEnergies(S.ch) : null;
     ["P1a", "P1b"].forEach(function (prod) {
-      var rs = N.routes.filter(function (r) { return r.product === prod; });
+      var rs = N.routes.filter(function (r) { return r.product === prod && !(hideBad() && r.fails && r.fails.length); });
       out += "<div class='group'><h3>Routes to " + esc(prod) + " (" + esc(META.iso[prod] || "") + ")" +
         (prod === major ? " <span class='bdg obs'>observed major</span>" : "") + "</h3>";
       var others = 0, shut = false;
@@ -1304,16 +1335,19 @@
     var q = query(), sp = M().species, rows = "";
     Object.keys(sp).forEach(function (s) {
       var t = (s + " " + sp[s].name + " " + sp[s].formula).toLowerCase();
-      if (q && t.indexOf(q) < 0) return;
-      rows += "<tr data-s='" + esc(s) + "'><td class='id'>" + esc(s) + "</td><td>" + esc(chText(sp[s].name)) + "</td><td>" + esc(sp[s].formula) + "</td><td>" +
+      if ((q && t.indexOf(q) < 0) || (hideBad() && sp[s].fail)) return;
+      rows += "<tr data-s='" + esc(s) + "'><td class='id'>" + esc(s) + "</td><td>" + esc(chText(sp[s].name)) +
+        (sp[s].fail ? " <span class='xfail'>&#10007; " + esc(sp[s].fail) + "</span>" : "") + "</td><td>" + esc(sp[s].formula) + "</td><td>" +
         esc(sp[s].used_by.join(", ") || (sp[s].start_of.length ? "SCAN start of " + sp[s].start_of.join(", ") : "")) + "</td></tr>";
     });
     $("#sptable").innerHTML = "<thead><tr><th>ID</th><th>name</th><th>formula</th><th>mechanisms</th></tr></thead><tbody>" + rows + "</tbody>";
     var st = M().steps; rows = "";
     Object.keys(st).forEach(function (s) {
       var t = (s + " " + st[s].name + " " + st[s].reaction).toLowerCase();
-      if (q && t.indexOf(q) < 0) return;
-      rows += "<tr data-t='" + esc(s) + "'><td class='id' style='color:" + esc(st[s].colour) + "'>" + esc(s) + "</td><td>" + esc(chText(st[s].name)) + "</td><td>" + esc(st[s].reaction) +
+      if ((q && t.indexOf(q) < 0) || (hideBad() && st[s].fails && st[s].fails.length)) return;
+      rows += "<tr data-t='" + esc(s) + "'><td class='id' style='color:" + esc(st[s].colour) + "'>" + esc(s) + "</td><td>" + esc(chText(st[s].name)) +
+        (st[s].fails && st[s].fails.length ? " <span class='xfail'>&#10007; cannot happen as drawn: " + esc(st[s].fails.join(", ")) + " does not hold (DFT)</span>" : "") +
+        "</td><td>" + esc(st[s].reaction) +
         "</td><td>" + esc(st[s].used_by.filter(function (m) { return baseMech(m); }).join(", ")) + "</td></tr>";
     });
     $("#sttable").innerHTML = "<thead><tr><th>ID</th><th>what happens</th><th>reaction</th><th>mechanisms</th></tr></thead><tbody>" + rows + "</tbody>";
@@ -1352,6 +1386,15 @@
   }
   $("#tabs").addEventListener("click", function (e) { if (e.target.dataset.tab) setTab(e.target.dataset.tab); });
   $("#chsel").addEventListener("click", function (e) { if (e.target.dataset.ch) setCh(e.target.dataset.ch); });
+  function setShowAll(on) {           // the Show all switch
+    S.showall = !!on; $("#showall").checked = S.showall; savePrefs();
+    if (S.mech && !mechOK(S.mech)) showMech(firstMech()); else famList();
+    tables();
+    $("#netview").classList.toggle("hidebad", hideBad());
+    if (net.route && routeOf(net.route) && hideBad() && (routeOf(net.route).fails || []).length) net.route = null;
+    if (NW() && (net.el || net.ch)) { routeList(); highlight(); }
+  }
+  $("#showall").addEventListener("change", function () { setShowAll(this.checked); });
   $("#q").addEventListener("input", function () {
     famList(); tables(); if (net.ch) routeList();
     var up = query().toUpperCase();
@@ -1372,6 +1415,10 @@
   if (H.view === "energy" || H.view === "mech") S.energy = H.view === "energy";   // #view=: drawing or energy diagram
   if (H.level === "sp" || H.level === "dft") S.elevel = H.level;                  // #level=: the energies' level
   if (H.nview === "energy" || H.nview === "net") S.nenergy = H.nview === "energy"; // #nview=: network or energy landscape
+  if (H.all === "1" || H.all === "0") S.showall = H.all === "1";                  // #all=1: show what will not work too
+  if ((H.m && baseMech(H.m) && !mechOK(H.m)) || (H.route && NW() && routeOf(H.route) && (routeOf(H.route).fails || []).length))
+    S.showall = true;                                                             // a link to something hidden shows it
+  $("#showall").checked = S.showall;
   famList(); tables(); about(); applyMechTS(); applyView();
   showMech(baseMech(H.m) ? H.m : firstMech());
   showNet();
