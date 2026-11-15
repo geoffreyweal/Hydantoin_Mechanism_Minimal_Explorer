@@ -800,18 +800,16 @@
     }, { passive: false });
   }
   function NW() { return (window.NETWORK || {})[S.ch] || null; }
-  function crossBoxes(svg) {         // a red cross over each box that DFT showed does not hold as drawn
+  function crossArrows() {           // a red cross on each arrow of a step that cannot happen as drawn (on its middle)
+    if (!net.el) return;
     var ns = "http://www.w3.org/2000/svg";
-    $$("g.node.dft-fail", svg).forEach(function (g) {
-      var xs = [], ys = [];
-      $$("polygon", g).forEach(function (p) {
-        (p.getAttribute("points") || "").trim().split(/\s+/).forEach(function (pt) { var a = pt.split(","); if (a.length === 2) { xs.push(+a[0]); ys.push(+a[1]); } });
-      });
-      if (!xs.length) return;
-      var x0 = Math.min.apply(null, xs), x1 = Math.max.apply(null, xs), y0 = Math.min.apply(null, ys), y1 = Math.max.apply(null, ys);
-      var G = document.createElementNS(ns, "g");
-      G.setAttribute("class", "xbox"); G.setAttribute("pointer-events", "none");
-      [[x0, y0, x1, y1], [x1, y0, x0, y1]].forEach(function (c) {
+    $$("g.edge.dft-fail", net.el).forEach(function (g) {
+      var old = g.querySelector("g.xarrow"); if (old) old.parentNode.removeChild(old);
+      var path = g.querySelector("path"), L = path && path.getTotalLength ? path.getTotalLength() : 0;
+      if (!L) return;
+      var m = path.getPointAtLength(L / 2), r = 13, G = document.createElementNS(ns, "g");
+      G.setAttribute("class", "xarrow"); G.setAttribute("pointer-events", "none");
+      [[m.x - r, m.y - r, m.x + r, m.y + r], [m.x + r, m.y - r, m.x - r, m.y + r]].forEach(function (c) {
         var l = document.createElementNS(ns, "line");
         l.setAttribute("x1", c[0]); l.setAttribute("y1", c[1]); l.setAttribute("x2", c[2]); l.setAttribute("y2", c[3]);
         G.appendChild(l);
@@ -851,9 +849,9 @@
       svg.removeAttribute("width"); svg.removeAttribute("height"); svg.style.width = "100%"; svg.style.height = "100%";
       net.el = svg;
       net.layout = S.ch;
-      crossBoxes(svg);
       net.geo = buildGeo(svg);
       applyMoves();                  // boxes moved by hand earlier in this network (this page only, until reload)
+      crossArrows();
       var b = svg.viewBox.baseVal;
       net.full = { x: b.x, y: b.y, width: b.width, height: b.height };
       net.needFit = true;
@@ -1278,7 +1276,7 @@
   function rerouteAll() {            // after a move: every arrow of a moved box, and every arrow through a moved box
     if (!net.geo) return;
     var M = moves() || {}, names = Object.keys(M), geo = net.geo;
-    if (!names.length) { geo.edges.forEach(restoreEdge); return; }
+    if (!names.length) { geo.edges.forEach(restoreEdge); crossArrows(); return; }
     var aff = {}, order = [];
     names.forEach(function (nm) { (geo.byNode[nm] || []).forEach(function (k) { if (!aff[k]) { aff[k] = 1; order.push(k); } }); });
     var rects = names.map(function (nm) { return inflate(nodeRect(nm), RT.margin); });
@@ -1298,6 +1296,7 @@
       labelAt(E, res.Q, boxes);
       others[k] = samplePath(res.d);
     });
+    crossArrows();
   }
   function placeNode(nm, d) {        // move a box to d = [dx, dy] from where Graphviz put it, and draw its arrows again
     var n = net.geo && net.geo.nodes[nm];
@@ -1323,6 +1322,7 @@
     names.forEach(function (nm) { placeNode(nm, null); });
     net.moved[S.ch] = null;
     if (net.geo) net.geo.edges.forEach(restoreEdge);
+    crossArrows();
     showNetButtons();
   }
   function showNetButtons() {        // "reset positions", only when a box has been moved

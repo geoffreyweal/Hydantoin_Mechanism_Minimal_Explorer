@@ -171,3 +171,4 @@ aside#routelist { width: 360px; flex: none; overflow: auto; border-right: 1px so
 .controls label.showall { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); cursor: pointer; white-space: nowrap; }
 #netview.hidebad g.dft-fail { display: none; }
 #netview g.xbox line { stroke: #c62828; stroke-width: 6; stroke-linecap: round; opacity: 0.8; }
+#netview g.xarrow line { stroke: #c62828; stroke-width: 5; stroke-linecap: round; }
