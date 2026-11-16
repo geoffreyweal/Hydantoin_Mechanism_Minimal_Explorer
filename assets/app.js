@@ -361,14 +361,28 @@
         var dx = b.x - a.x, dy = b.y - a.y, dz = b.z - a.z, L = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1, mv = P.to - P.d0;
         var end = { x: b.x + dx / L * mv, y: b.y + dy / L * mv, z: b.z + dz / L * mv };
         if (Math.abs(mv) > 0.05) v.addArrow({ start: pb, end: end, radius: 0.09, radiusRatio: 2.2, mid: 0.8, color: "#c62828" });
-        [[P.i, P.li], [P.j, P.lj]].forEach(function (q) { var t = f.atoms[q[0]]; if (t) v.addLabel(q[1], { position: { x: t.x, y: t.y, z: t.z }, fontSize: 12, fontColor: "black", backgroundColor: "white", backgroundOpacity: 0.8, inFront: true }); });
+        /* the two scanned atoms: a halo in the step's colour, named with the molecule each is on ("C5 (I4a)"); the other atoms
+           whose bonds change in the step: a grey halo (Geoff, 2026-11-17) */
+        var nm = function (n, m) { return n + (m ? " (" + m + ")" : ""); }, ni = nm(P.ni || P.li, P.mi), nj = nm(P.nj || P.lj, P.mj);
+        [[P.i, ni], [P.j, nj]].forEach(function (q) {
+          var t = f.atoms[q[0]]; if (!t) return;
+          v.addSphere({ center: { x: t.x, y: t.y, z: t.z }, radius: 0.85, color: st.colour, opacity: 0.45 });
+          v.addLabel(q[1], { position: { x: t.x, y: t.y, z: t.z }, fontSize: 12, fontColor: "black", backgroundColor: "white", backgroundOpacity: 0.85, inFront: true });
+        });
+        (P.others || []).forEach(function (o) {
+          var t = f.atoms[o[0]]; if (!t) return;
+          v.addSphere({ center: { x: t.x, y: t.y, z: t.z }, radius: 0.7, color: "#8a8a8a", opacity: 0.35 });
+          v.addLabel(nm(o[1], o[2]), { position: { x: t.x, y: t.y, z: t.z }, fontSize: 10, fontColor: "#444444", backgroundColor: "white", backgroundOpacity: 0.6, inFront: true });
+        });
+        sv.scanAtoms = { pair: [ni, nj], others: (P.others || []).map(function (o) { return nm(o[1], o[2]); }) };
         v.render();
-        $(".fr", pane).textContent = P.li + "–" + P.lj + ": " + P.d0.toFixed(2) + " → " + Number(P.to).toFixed(2) + " Å, " + P.n + " points";
+        $(".fr", pane).textContent = ni + " – " + nj + ": " + P.d0.toFixed(2) + " → " + Number(P.to).toFixed(2) + " Å, " + P.n + " points";
         $("a[download]", pane).href = "xyz/scan/Ch_" + ch + "/" + encodeURIComponent(sid) + "_scan_start.xyz";
         var notes = (P.notes || []).map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("");
         $(".scaninfo", pane).innerHTML = "<p><b>The SCAN option</b> (Step 2Ba; what mechflow runs when <code>neb.enabled</code> is false): " +
-          "it starts from " + esc(P.how) + " and " + (P.mode === "stretch" ? "stretches " : "brings together ") + esc(P.li) + "–" + esc(P.lj) +
-          " (dashed) from " + P.d0.toFixed(2) + " to " + Number(P.to).toFixed(2) + " Å (red arrow) in " + P.n + " points, " + P.step + " Å apart. " +
+          "it starts from " + esc(P.how) + " and " + (P.mode === "stretch" ? "stretches " : "brings together ") + esc(ni) + " – " + esc(nj) +
+          " (dashed; halo in the step's colour) from " + P.d0.toFixed(2) + " to " + Number(P.to).toFixed(2) + " Å (red arrow) in " + P.n + " points, " + P.step + " Å apart. " +
+          ((P.others || []).length ? "The other atoms whose bonds change in the step have a grey halo: " + esc(sv.scanAtoms.others.join(", ")) + ". " : "") +
           "At every point all the other atoms are optimised with only this distance held, and the highest point is the TS guess.</p>" +
           "<p>Compared with the NEB: only the start is fixed. The path is whatever that relaxation finds, so the way a group comes in " +
           "or leaves (along the p orbital, along a hydrogen bond) is not set by the start; the NEB fixes both ends, and its path is optimised between them.</p>" +
@@ -379,6 +393,18 @@
     /* the chemistry check of a SCAN start (make_neb.judge_start): what does not make sense in it, why where it cannot be
        helped, and the NEB start's end where that one is set up for the step */
     function scanCheck(P) {
+      return scanOne(P) + scanCheck1(P);
+    }
+    /* a SCAN of a complex whose two atoms are on one molecule drives only that molecule (Geoff, 2026-11-17) */
+    function scanOne(P) {
+      if (!P.inside) return "";
+      var u = P.undriven || [], b = P.und_bonds || [];
+      return "<p class='scanbad scanone'><b>Only " + esc(P.inside) + " is driven:</b> both scanned atoms are on " + esc(P.inside) + ", so " +
+        esc(u.join(" and ")) + (u.length > 1 ? " are" : " is") + " not driven" +
+        (b.length ? ": what " + (u.length > 1 ? "they do" : "it does") + " in the step (" + esc(b.join(", ")) + ") has to follow by itself" : "") +
+        ". The NEB fixes both ends (<i>3D: NEB start</i>).</p>";
+    }
+    function scanCheck1(P) {
       var c = P.check || [];
       if (!c.length) return "<p class='scanok'><b>Chemistry check:</b> nothing out of place (each proton on line with the lone pair " +
         "it goes to, each nucleophile with its lone pair at its carbon, on the face that gives the product's hands).</p>";
@@ -957,6 +983,26 @@
       });
       g.appendChild(G);
     });
+    tickArrows();
+  }
+  /* your review ticks on the network (Geoff, 2026-11-17: "for those steps that I am happy with, put a tick next to them in
+     steps and network"): a green tick after the step's label on its arrow */
+  function tickArrows() {
+    if (!net.el) return;
+    var ns = "http://www.w3.org/2000/svg";
+    $$("tspan.rvtick", net.el).forEach(function (t) { t.parentNode.removeChild(t); });
+    $$("g.edge", net.el).forEach(function (g) {
+      var m = /^st\|([^|]+)\|/.exec(g.getAttribute("id") || "");
+      if (!m || !happy(rv(S.ch, m[1]))) return;
+      var lab = Array.prototype.filter.call(g.children, function (c) {
+        return c.tagName.toLowerCase() === "text" && c.textContent.indexOf(m[1]) >= 0;
+      })[0];
+      if (!lab) return;
+      var tick = document.createElementNS(ns, "tspan");
+      tick.setAttribute("class", "rvtick"); tick.setAttribute("fill", "#1b7f3b");
+      tick.textContent = " \u2713";
+      lab.appendChild(tick);
+    });
   }
   function showNet() {               // the network of the chalcogen shown (drawn once per chalcogen change)
     wireNet();
@@ -1472,35 +1518,84 @@
   }
 
   // ------------------------------------------------------------------ tables
+  /* sortable tables (Geoff, 2026-11-17: "in steps and species, allow ordering in the table"): click a heading to sort by
+     that column, again for the other way, a third time for the study's own order. SORT.sp / SORT.st = [column, +1 | -1]. */
+  var SORT = { sp: null, st: null };
+  function sortRows(which, rows) {          // rows: [{key: [one value per column], html: "<tr>..."}]
+    var o = SORT[which];
+    if (!o) return rows;
+    return rows.slice().sort(function (a, b) {
+      var x = a.key[o[0]], y = b.key[o[0]], ex = x === "" || x === null || x === undefined, ey = y === "" || y === null || y === undefined;
+      if (ex !== ey) return ex ? 1 : -1;                 // empty cells last, either way round
+      var r = ex ? 0 : (typeof x === "number" && typeof y === "number" ? x - y : nat(x, y));
+      return o[1] * r || nat(a.key[0], b.key[0]);
+    });
+  }
+  function sortHead(which, cols) {         // cols: [[heading html, title]]
+    var o = SORT[which];
+    return "<thead><tr>" + cols.map(function (c, k) {
+      var on = !!o && o[0] === k;
+      return "<th class='sortable" + (on ? " sorted" : "") + "' data-sort='" + k + "' tabindex='0' aria-sort='" + (on ? (o[1] > 0 ? "ascending" : "descending") : "none") +
+        "' title='" + esc((c[1] ? c[1] + ". " : "") + "Click to sort") + "'>" + c[0] + "<span class='sarr'>" + (on ? (o[1] > 0 ? "&#9650;" : "&#9660;") : "") + "</span></th>";
+    }).join("") + "</tr></thead>";
+  }
+  function happy(r) { return !!(r && (r.neb || r.scan)); }
   function tables() {
-    var q = query(), sp = M().species, rows = "";
+    var q = query(), sp = M().species, rows = [];
     Object.keys(sp).forEach(function (s) {
       var t = (s + " " + sp[s].name + " " + sp[s].formula).toLowerCase();
       if ((q && t.indexOf(q) < 0) || (hideBad() && sp[s].fail)) return;
-      rows += "<tr data-s='" + esc(s) + "'><td class='id'>" + esc(s) + "</td><td>" + esc(chText(sp[s].name)) +
+      var used = sp[s].used_by.join(", ") || (sp[s].start_of.length ? "SCAN start of " + sp[s].start_of.join(", ") : "");
+      rows.push({ key: [s, chText(sp[s].name).toLowerCase(), sp[s].formula, used],
+        html: "<tr data-s='" + esc(s) + "'><td class='id'>" + esc(s) + "</td><td>" + esc(chText(sp[s].name)) +
         (sp[s].fail ? " <span class='xfail'>&#10007; " + esc(sp[s].fail) + "</span>" : "") + "</td><td>" + esc(sp[s].formula) + "</td><td>" +
-        esc(sp[s].used_by.join(", ") || (sp[s].start_of.length ? "SCAN start of " + sp[s].start_of.join(", ") : "")) + "</td></tr>";
+        esc(used) + "</td></tr>" });
     });
-    $("#sptable").innerHTML = "<thead><tr><th>ID</th><th>name</th><th>formula</th><th>mechanisms</th></tr></thead><tbody>" + rows + "</tbody>";
-    var st = M().steps; rows = "";
+    $("#sptable").innerHTML = sortHead("sp", [["ID"], ["name"], ["formula"], ["mechanisms"]]) + "<tbody>" +
+      sortRows("sp", rows).map(function (r) { return r.html; }).join("") + "</tbody>";
+    var st = M().steps;
+    rows = [];
     Object.keys(st).forEach(function (s) {
       var t = (s + " " + st[s].name + " " + st[s].reaction).toLowerCase();
       if ((q && t.indexOf(q) < 0) || (hideBad() && st[s].fails && st[s].fails.length)) return;
-      rows += "<tr data-t='" + esc(s) + "'><td class='id' style='color:" + esc(st[s].colour) + "'>" + esc(s) + "</td><td>" + esc(chText(st[s].name)) +
+      var r0 = rv(S.ch, s), used = st[s].used_by.filter(function (m) { return baseMech(m); }).join(", ");
+      rows.push({ key: [s, chText(st[s].name).toLowerCase(), st[s].reaction, used,
+                        st[s].neb === true ? (st[s].neb_flags ? 1 : 0) : 2, happy(r0) ? 0 : (r0.note ? 1 : "")], html:
+      "<tr data-t='" + esc(s) + "'><td class='id' style='color:" + esc(st[s].colour) + "'>" + esc(s) +
+        (happy(r0) ? " <span class='rvtick' title='you are happy with its " + (r0.neb && r0.scan ? "NEB and SCAN starts" : r0.neb ? "NEB start" : "SCAN start") + "'>&#10003;</span>" : "") +
+        "</td><td>" + esc(chText(st[s].name)) +
         (st[s].fails && st[s].fails.length ? " <span class='xfail'>&#10007; cannot happen as drawn: " + esc(st[s].fails.join(", ")) + " does not hold (DFT)</span>" : "") +
         "</td><td>" + esc(st[s].reaction) +
-        "</td><td>" + esc(st[s].used_by.filter(function (m) { return baseMech(m); }).join(", ")) + "</td><td class='neb'>" +
+        "</td><td>" + esc(used) + "</td><td class='neb'>" +
         (st[s].neb === true ? (st[s].neb_flags ? "<span class='nebflag' title='" + esc(st[s].neb_flags) + "'>&#9888; look</span>" : "<span class='nebok'>&#10003;</span>")
          : "<span class='nebno' title='" + esc(typeof st[s].neb === "string" ? st[s].neb : "") + "'>&ndash;</span>") + "</td><td class='rv'>" +
         (function (r) {
           return (r.neb ? "<span class='rvok'>NEB&nbsp;&#10003;</span> " : "") + (r.scan ? "<span class='rvok'>SCAN&nbsp;&#10003;</span> " : "") +
             (r.note ? "<span class='rvnote' title='" + esc(r.note) + "'>&#9998;&nbsp;" + esc(r.note.length > 40 ? r.note.slice(0, 39) + "\u2026" : r.note) + "</span>" : "");
-        })(rv(S.ch, s)) + "</td></tr>";
+        })(r0) + "</td></tr>" });
     });
-    $("#sttable").innerHTML = "<thead><tr><th>ID</th><th>what happens</th><th>reaction</th><th>mechanisms</th><th title='the NEB starting path (3D: NEB start in the step window)'>NEB start</th>" +
-      "<th title='your Step 2 review: tick a start in the step window (3D: NEB start, 3D: SCAN)'>yours</th></tr></thead><tbody>" + rows + "</tbody>";
+    $("#sttable").innerHTML = sortHead("st", [["ID"], ["what happens"], ["reaction"], ["mechanisms"],
+      ["NEB start", "the NEB starting path (3D: NEB start in the step window)"],
+      ["yours", "your Step 2 review: tick a start in the step window (3D: NEB start, 3D: SCAN)"]]) + "<tbody>" +
+      sortRows("st", rows).map(function (r) { return r.html; }).join("") + "</tbody>";
     reviewPanel();
+    tickArrows();                    // the review may have changed (tick, Clear, Import): the network's ticks follow
   }
+  [["#sptable", "sp"], ["#sttable", "st"]].forEach(function (t) {
+    var el = $(t[0]);
+    if (!el) return;
+    var go = function (th) {
+      var k = +th.dataset.sort, o = SORT[t[1]];
+      SORT[t[1]] = !o || o[0] !== k ? [k, 1] : (o[1] > 0 ? [k, -1] : null);
+      tables();
+      var again = $("th[data-sort='" + k + "']", el); if (again) again.focus();
+    };
+    el.addEventListener("click", function (e) { var th = e.target.closest("th[data-sort]"); if (th) go(th); });
+    el.addEventListener("keydown", function (e) {
+      var th = e.target.closest("th[data-sort]");
+      if (th && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); go(th); }
+    });
+  });
   function reviewKeys(ch) {
     return Object.keys(REVIEW).filter(function (k) { return k.split("|")[0] === ch; }).map(function (k) { return k.split("|")[1]; }).sort(nat);
   }

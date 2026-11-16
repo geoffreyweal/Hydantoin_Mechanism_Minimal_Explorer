@@ -199,3 +199,10 @@ aside#routelist { width: 360px; flex: none; overflow: auto; border-right: 1px so
 td.rv { white-space: nowrap; }
 .rvok { color: var(--ok, #1b7f3b); font-weight: 600; }
 .rvnote { color: inherit; opacity: 0.85; }
+/* sortable tables (click a heading) and your review ticks (Steps table, network arrows) */
+th.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+th.sortable:hover, th.sortable:focus { text-decoration: underline; }
+th.sorted { color: var(--accent, #1d4ed8); }
+th .sarr { font-size: 0.7em; margin-left: 3px; }
+.rvtick { color: var(--ok, #1b7f3b); font-weight: 700; }
+.scaninfo .scanone { font-weight: 500; }
