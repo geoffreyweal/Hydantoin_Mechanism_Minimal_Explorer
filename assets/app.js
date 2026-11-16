@@ -189,6 +189,7 @@
     dir = rev ? "rev" : "fwd";
     var body = makeWin(sid + (rev ? " (backwards)" : ""), (rev ? "reverse of: " : "") + chText(st.name) + "  (" + CHN[ch] + ")", 900);
     body.innerHTML = "<div class='tabs'><button data-p='d' class='on'>Diagram</button><button data-p='p'>3D: TS guess and path</button>" +
+      "<button data-p='n'>3D: NEB start</button>" +
       (st.dft.length ? "<button data-p='q'>3D: DFT</button>" : "") + "<button data-p='i'>Details</button></div>" +
       "<div class='pane on' data-p='d'><div class='seg evswitch' role='group' aria-label='Step or energy diagram' hidden><button data-ev='0'>Step</button>" +
       "<button data-ev='1'>Energy</button></div> <div class='seg tsswitch' role='group' aria-label='TS picture' hidden><button data-ts='2d'>2D</button>" +
@@ -198,6 +199,9 @@
       "<button data-a='labels'>Key atoms</button><a download>path .xyz (ase gui)</a></div>" +
       "<div class='info note'>IDPP path (ASE NEB) between the two sides of the step" + (rev ? ", played backwards" : "") +
       "; TS guess: the image whose scanned distance is nearest a typical TS value. Not a DFT result: <code>ase gui " + esc(sid) + "_path.xyz</code></div></div>" +
+      "<div class='pane' data-p='n'><div class='v3d'></div><div class='tools'><button data-a='play'>&#9654; Play</button>" +
+      "<input type='range' min='0' max='1' value='0' aria-label='image'><span class='fr'></span>" +
+      "<button data-a='labels'>Key atoms</button><a download>NEB start .xyz (ase gui)</a></div><div class='info note nebinfo'></div></div>" +
       (st.dft.length ? "<div class='pane' data-p='q'><div class='v3d'></div><div class='tools'><input type='range' min='0' value='0'><span class='fr'></span></div></div>" : "") +
       "<div class='pane' data-p='i'><div class='info'></div></div>";
     var tabs = $(".tabs", body);
@@ -205,7 +209,7 @@
       var p = e.target.dataset.p; if (!p) return;
       $$(".tabs button", body).forEach(function (b) { b.classList.toggle("on", b.dataset.p === p); });
       $$(".pane", body).forEach(function (b) { b.classList.toggle("on", b.dataset.p === p); });
-      if (p === "p") showPath(); if (p === "q") showDFT();
+      if (p === "p") showPath(); if (p === "n") showNEB(); if (p === "q") showDFT();
     });
     // the TS above the arrow: the 2D sketch (.ts2d) or the 3D TS guess (.ts3d), when the drawing has both
     var dBox = $(".pane[data-p=d] .svgbox", body), sw = $(".pane[data-p=d] .tsswitch", body);
@@ -254,15 +258,21 @@
       if (pv) return;
       if (st.path === false) { pv = true; $(".pane[data-p=p]", body).innerHTML = "<div class='info'>No TS guess or path for this step yet (make_paths.py, then rebuild the website).</div>"; return; }
       load("path", ch, sid).then(function (P) {
-        var pane = $(".pane[data-p=p]", body), fr = frames(P.xyz), n = fr.length, v = viewer3d($(".v3d", pane));
-        pv = v;
+        pv = playPath($(".pane[data-p=p]", body), P, typeof P.ts === "number" ? P.ts : 0,
+                      "xyz/ts_guesses/Ch_" + ch + "/" + encodeURIComponent(sid) + "_path.xyz");
+      }).catch(function () { $(".pane[data-p=p]", body).innerHTML = "<div class='info'>No path for this step.</div>"; });
+    }
+    /* a path (all images of an xyz file) in a pane: play, slider, key atoms, the bonds that change dashed;
+       tsFrame: the image marked as the TS guess (null: none) */
+    function playPath(pane, P, tsFrame, href) {
+        var fr = frames(P.xyz), n = fr.length, v = viewer3d($(".v3d", pane));
         v.addModelsAsFrames(P.xyz, "xyz"); styleAll(v, "ball"); v.zoomTo();
         /* position k on the slider shows frame at(k): backwards, from the step's right side to its left side */
-        var at = function (k) { return rev ? n - 1 - k : k; }, tsFrame = typeof P.ts === "number" ? P.ts : 0;
-        var slider = $("input[type=range]", pane), lab = $(".fr", pane), k = at(tsFrame), timer = null, labels = false;
+        var at = function (k) { return rev ? n - 1 - k : k; };
+        var slider = $("input[type=range]", pane), lab = $(".fr", pane), k = at(tsFrame === null ? 0 : tsFrame), timer = null, labels = false;
         var ka = keyAtoms((xyzOf(st.start, ch) || "").split(/\r?\n/)[1]), d = Array.isArray(P.d) ? P.d : [];
         slider.max = n - 1;
-        $("a[download]", pane).href = "xyz/ts_guesses/Ch_" + ch + "/" + encodeURIComponent(sid) + "_path.xyz";
+        $("a[download]", pane).href = href;
         function draw() {
           var j = at(k), f = fr[j];
           Promise.resolve(v.setFrame(j)).then(function () {
@@ -275,13 +285,13 @@
             v.render();
           });
           slider.value = k;
-          lab.textContent = "image " + k + "/" + (n - 1) + (j === tsFrame ? "  (TS guess)" : "") + (typeof d[j] === "number" ? "  d = " + d[j].toFixed(2) + " Å" : "");
+          lab.textContent = "image " + k + "/" + (n - 1) + (tsFrame !== null && j === tsFrame ? "  (TS guess)" : "") + (typeof d[j] === "number" ? "  d = " + d[j].toFixed(2) + " Å" : "");
         }
         draw();
         slider.oninput = function () { k = +slider.value; draw(); };
         $(".tools", pane).addEventListener("click", function (e) {
           var a = e.target.dataset.a;
-          if (a === "ts") { k = at(tsFrame); draw(); }
+          if (a === "ts" && tsFrame !== null) { k = at(tsFrame); draw(); }
           if (a === "labels") { labels = !labels; draw(); }
           if (a === "play") {
             if (timer) { clearInterval(timer); timer = null; e.target.innerHTML = "&#9654; Play"; return; }
@@ -289,7 +299,28 @@
             timer = setInterval(function () { if (!document.body.contains(pane)) { clearInterval(timer); return; } k = (k + 1) % n; draw(); }, Math.max(60, Math.round(4000 / n)));
           }
         });
-      }).catch(function () { $(".pane[data-p=p]", body).innerHTML = "<div class='info'>No path for this step.</div>"; });
+        return v;
+    }
+    /* the NEB starting path: the step's two ends from the DFT structures (make_neb.py), ASE IDPP images between them */
+    var nv = null;
+    function showNEB() {
+      if (nv) return;
+      var pane = $(".pane[data-p=n]", body);
+      if (st.neb !== true) {
+        nv = true;
+        pane.innerHTML = "<div class='info'>No NEB starting path for this step" + (typeof st.neb === "string" ? ": " + esc(st.neb) : "") + ".</div>";
+        return;
+      }
+      load("neb", ch, sid).then(function (P) {
+        nv = playPath(pane, P, null, "xyz/neb/Ch_" + ch + "/" + encodeURIComponent(sid) + "_neb.xyz");
+        var flags = (P.flags || []).map(function (f) { return "<li class='nebflag'>" + esc(f) + "</li>"; }).join("");
+        var list = function (a) { return (a || []).map(function (x) { return "<li>" + esc(x) + "</li>"; }).join(""); };
+        $(".nebinfo", pane).innerHTML = "<p>The starting path of an NEB-CI" + (rev ? " (played backwards)" : "") + ": the two ends from the " +
+          "DFT-optimised structures, " + (P.images - 2) + " images between them by ASE's IDPP interpolation. Not a DFT result: " +
+          "<code>ase gui " + esc(sid) + "_neb.xyz</code>. On the cluster an end of more than one molecule is optimised before the NEB runs.</p>" +
+          (flags ? "<p><b>Look at:</b></p><ul>" + flags + "</ul>" : "<p>No atoms of different molecules come too close along the path.</p>") +
+          "<p><b>Left end</b> (" + esc(P.reaction_left) + "):</p><ul>" + list(P.left) + "</ul><p><b>Right end</b> (" + esc(P.reaction_right) + "):</p><ul>" + list(P.right) + "</ul>";
+      }).catch(function () { pane.innerHTML = "<div class='info'>No NEB starting path for this step.</div>"; });
     }
     function showDFT() {
       load("dft", ch, sid).then(function (D) {
@@ -1348,9 +1379,11 @@
       rows += "<tr data-t='" + esc(s) + "'><td class='id' style='color:" + esc(st[s].colour) + "'>" + esc(s) + "</td><td>" + esc(chText(st[s].name)) +
         (st[s].fails && st[s].fails.length ? " <span class='xfail'>&#10007; cannot happen as drawn: " + esc(st[s].fails.join(", ")) + " does not hold (DFT)</span>" : "") +
         "</td><td>" + esc(st[s].reaction) +
-        "</td><td>" + esc(st[s].used_by.filter(function (m) { return baseMech(m); }).join(", ")) + "</td></tr>";
+        "</td><td>" + esc(st[s].used_by.filter(function (m) { return baseMech(m); }).join(", ")) + "</td><td class='neb'>" +
+        (st[s].neb === true ? (st[s].neb_flags ? "<span class='nebflag' title='" + esc(st[s].neb_flags) + "'>&#9888; look</span>" : "<span class='nebok'>&#10003;</span>")
+         : "<span class='nebno' title='" + esc(typeof st[s].neb === "string" ? st[s].neb : "") + "'>&ndash;</span>") + "</td></tr>";
     });
-    $("#sttable").innerHTML = "<thead><tr><th>ID</th><th>what happens</th><th>reaction</th><th>mechanisms</th></tr></thead><tbody>" + rows + "</tbody>";
+    $("#sttable").innerHTML = "<thead><tr><th>ID</th><th>what happens</th><th>reaction</th><th>mechanisms</th><th title='the NEB starting path (3D: NEB start in the step window)'>NEB start</th></tr></thead><tbody>" + rows + "</tbody>";
   }
   $("#sptable").addEventListener("click", function (e) { var r = e.target.closest("tr[data-s]"); if (r) openMol([r.getAttribute("data-s")]); });
   $("#sttable").addEventListener("click", function (e) { var r = e.target.closest("tr[data-t]"); if (r) openStep(r.getAttribute("data-t"), "fwd"); });
