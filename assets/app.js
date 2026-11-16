@@ -20,6 +20,24 @@
   function savePrefs() {
     try { localStorage.setItem("hpm.prefs", JSON.stringify({ mts3d: S.mts3d, ts3d: S.ts3d, energy: S.energy, elevel: S.elevel, nenergy: S.nenergy, senergy: S.senergy, showall: S.showall })); } catch (e) { /* no storage */ }
   }
+  /* your Step 2 review: the NEB and SCAN starts you are happy with, and a note per step, per chalcogen
+     ({"O|S10": {neb: true, scan: false, note: "...", t: "<when>"}}). Kept in this browser only (localStorage
+     'hpm.review'); the Steps tab downloads it as a file, imports one, and writes the mechflow approve lines. */
+  var REVIEW = (function () {
+    try { var r = JSON.parse(localStorage.getItem("hpm.review") || "{}"); return r && typeof r === "object" ? r : {}; } catch (e) { return {}; }
+  })();
+  var reviewStored = true;
+  function saveReview() {
+    try { localStorage.setItem("hpm.review", JSON.stringify(REVIEW)); reviewStored = true; } catch (e) { reviewStored = false; }
+  }
+  function rv(ch, sid) { return REVIEW[ch + "|" + sid] || {}; }
+  function setRv(ch, sid, k, v) {
+    var key = ch + "|" + sid, r = REVIEW[key] || {};
+    r[k] = v; r.t = new Date().toISOString();
+    if (!r.neb && !r.scan && !r.note) delete REVIEW[key]; else REVIEW[key] = r;
+    saveReview();
+    tables();
+  }
 
   /* the build tag of this page (app.js?v=...), added to the data files loaded later so that a new build is never mixed
      with files the browser kept from an old one */
@@ -131,7 +149,25 @@
   });
   function viewer3d(el) {
     if (!window.$3Dmol) { el.textContent = "The 3D viewer (assets/3Dmol-min.js) is missing from this copy of the site."; throw new Error("3Dmol.js is not loaded"); }
-    return window.$3Dmol.createViewer(el, { backgroundColor: "white" });
+    var v = window.$3Dmol.createViewer(el, { backgroundColor: "white" }), home = null, zoom = v.zoomTo;
+    /* the view the molecule is first shown in (its first zoomTo, when the models are in), for the Reset view button */
+    v.zoomTo = function () {
+      var r = zoom.apply(v, arguments);
+      if (!home) { try { home = v.getView(); } catch (e) { home = null; } }
+      return r;
+    };
+    var b = document.createElement("button");
+    b.className = "v3dreset"; b.type = "button"; b.textContent = "Reset view";
+    b.title = "Put the molecule back where it was when first shown";
+    ["pointerdown", "mousedown", "touchstart", "wheel"].forEach(function (t) { b.addEventListener(t, function (e) { e.stopPropagation(); }, { passive: true }); });
+    b.addEventListener("click", function (e) {
+      e.stopPropagation();
+      if (home) v.setView(home); else v.zoomTo();
+      v.render();
+    });
+    el.appendChild(b);
+    el.v3dViewer = v;                       /* (for the browser tests) */
+    return v;
   }
   function styleAll(v, mode) {
     if (mode === "line") v.setStyle({}, { line: { colorscheme: "Jmol" } });
@@ -148,7 +184,7 @@
     var body = makeWin(title, names + "  (" + CHN[S.ch] + ")", 640);
     body.innerHTML = "<div class='v3d'></div><div class='tools'><button data-a='labels'>Key atoms</button>" +
       "<button data-a='ball'>Ball &amp; stick</button><button data-a='line'>Lines</button><button data-a='spacefill'>Space-filling</button>" +
-      "<span class='note'>drag to turn, scroll to zoom</span></div><div class='info'></div>";
+      "<span class='note'>drag to turn, scroll to zoom; Reset view puts it back</span></div><div class='info'></div>";
     var v = viewer3d($(".v3d", body)), dx = 0, labels = [], show = false;
     ids.forEach(function (sid) {
       var f = frames(xyzOf(sid))[0], xs = f.atoms.map(function (a) { return a.x; });
@@ -317,6 +353,7 @@
       load("scan", ch, sid).then(function (P) {
         var v = viewer3d($(".v3d", pane)), f = frames(P.xyz)[0];
         sv = v;
+        $(".v3d", pane).insertAdjacentHTML("beforebegin", reviewBar("scan"));
         v.addModel(P.xyz, "xyz"); styleAll(v, "ball"); v.zoomTo();
         var a = f.atoms[P.i], b = f.atoms[P.j], pa = { x: a.x, y: a.y, z: a.z }, pb = { x: b.x, y: b.y, z: b.z };
         v.addCylinder({ start: pa, end: pb, radius: 0.07, color: st.colour, dashed: true, fromCap: 1, toCap: 1 });
@@ -352,6 +389,14 @@
           " image) is set up for the step. mechflow builds a SCAN start from the Step 1 structures, so a SCAN would have to be " +
           "started from a structure like that one by hand.</p>" : "");
     }
+    /* the tick and note of your Step 2 review, at the top of the NEB and SCAN panes */
+    function reviewBar(kind) {
+      var r = rv(ch, sid);
+      return "<div class='review' data-ch='" + esc(ch) + "' data-sid='" + esc(sid) + "'><label><input type='checkbox' data-ok='" + kind + "'" +
+        (r[kind] ? " checked" : "") + "> I am happy with this " + (kind === "neb" ? "NEB start" : "SCAN start") + "</label>" +
+        "<input type='text' class='rnote' maxlength='300' aria-label='your note on this step' placeholder='your note on " + esc(sid) +
+        " (kept in this browser; Steps tab: download, mechflow approve lines)' value='" + esc(r.note || "") + "'></div>";
+    }
     /* the NEB starting path: the step's two ends from the DFT structures (make_neb.py), ASE IDPP images between them */
     var nv = null;
     function showNEB() {
@@ -364,6 +409,7 @@
       }
       load("neb", ch, sid).then(function (P) {
         nv = playPath(pane, P, null, "xyz/neb/Ch_" + ch + "/" + encodeURIComponent(sid) + "_neb.xyz");
+        $(".v3d", pane).insertAdjacentHTML("beforebegin", reviewBar("neb"));
         var flags = (P.flags || []).map(function (f) { return "<li class='nebflag'>" + esc(f) + "</li>"; }).join("");
         var list = function (a) { return (a || []).map(function (x) { return "<li>" + esc(x) + "</li>"; }).join(""); };
         $(".nebinfo", pane).innerHTML = "<p>The starting path of an NEB-CI" + (rev ? " (played backwards)" : "") + ": the two ends from the " +
@@ -383,6 +429,19 @@
       }).catch(function () { $(".pane[data-p=q]", body).textContent = "No DFT structure for this step."; });
     }
   }
+
+  document.addEventListener("change", function (e) {
+    var t = e.target, w = t.closest ? t.closest(".review") : null;
+    if (w && t.dataset.ok) setRv(w.dataset.ch, w.dataset.sid, t.dataset.ok, t.checked);
+  });
+  document.addEventListener("input", function (e) {
+    var t = e.target, w = t.closest ? t.closest(".review") : null;
+    if (!w || !t.classList.contains("rnote")) return;
+    setRv(w.dataset.ch, w.dataset.sid, "note", t.value.trim() ? t.value : "");
+    $$(".review").forEach(function (o) {               // the same note in the step's other pane
+      if (o !== w && o.dataset.ch === w.dataset.ch && o.dataset.sid === w.dataset.sid) $(".rnote", o).value = t.value;
+    });
+  });
 
   // ------------------------------------------------------------------ mechanisms tab
   function query() { return ($("#q").value || "").trim().toLowerCase(); }
@@ -1432,10 +1491,98 @@
         "</td><td>" + esc(st[s].reaction) +
         "</td><td>" + esc(st[s].used_by.filter(function (m) { return baseMech(m); }).join(", ")) + "</td><td class='neb'>" +
         (st[s].neb === true ? (st[s].neb_flags ? "<span class='nebflag' title='" + esc(st[s].neb_flags) + "'>&#9888; look</span>" : "<span class='nebok'>&#10003;</span>")
-         : "<span class='nebno' title='" + esc(typeof st[s].neb === "string" ? st[s].neb : "") + "'>&ndash;</span>") + "</td></tr>";
+         : "<span class='nebno' title='" + esc(typeof st[s].neb === "string" ? st[s].neb : "") + "'>&ndash;</span>") + "</td><td class='rv'>" +
+        (function (r) {
+          return (r.neb ? "<span class='rvok'>NEB&nbsp;&#10003;</span> " : "") + (r.scan ? "<span class='rvok'>SCAN&nbsp;&#10003;</span> " : "") +
+            (r.note ? "<span class='rvnote' title='" + esc(r.note) + "'>&#9998;&nbsp;" + esc(r.note.length > 40 ? r.note.slice(0, 39) + "\u2026" : r.note) + "</span>" : "");
+        })(rv(S.ch, s)) + "</td></tr>";
     });
-    $("#sttable").innerHTML = "<thead><tr><th>ID</th><th>what happens</th><th>reaction</th><th>mechanisms</th><th title='the NEB starting path (3D: NEB start in the step window)'>NEB start</th></tr></thead><tbody>" + rows + "</tbody>";
+    $("#sttable").innerHTML = "<thead><tr><th>ID</th><th>what happens</th><th>reaction</th><th>mechanisms</th><th title='the NEB starting path (3D: NEB start in the step window)'>NEB start</th>" +
+      "<th title='your Step 2 review: tick a start in the step window (3D: NEB start, 3D: SCAN)'>yours</th></tr></thead><tbody>" + rows + "</tbody>";
+    reviewPanel();
   }
+  function reviewKeys(ch) {
+    return Object.keys(REVIEW).filter(function (k) { return k.split("|")[0] === ch; }).map(function (k) { return k.split("|")[1]; }).sort(nat);
+  }
+  /* the lines to run in the project on the cluster: the NEB starts you ticked, approved with your notes */
+  function reviewCommands(ch) {
+    var ids = reviewKeys(ch), plain = [], byNote = {}, scan = [];
+    var q = function (t) { return "'" + String(t).replace(/'/g, "'\\''") + "'"; };
+    ids.forEach(function (sid) {
+      var r = rv(ch, sid);
+      if (r.neb) { if (r.note) (byNote[r.note] = byNote[r.note] || []).push(sid); else plain.push(sid); }
+      if (r.scan) scan.push(sid);
+    });
+    var out = ["# the " + CHN[ch] + " project (Ch_" + ch + "): run these in its folder on the cluster"];
+    if (plain.length) out.push("mechflow approve " + plain.join(" ") + " --start");
+    Object.keys(byNote).forEach(function (n) { out.push("mechflow approve " + byNote[n].join(" ") + " --start --note " + q(n)); });
+    out.push(plain.length || Object.keys(byNote).length ? "mechflow next && mechflow submit" : "# (no NEB start ticked yet)");
+    if (scan.length) out.push("# SCAN starts you are happy with: " + scan.join(" ") + "  (mechflow runs SCANs only when neb.enabled is false, for the whole project)");
+    return out.join("\n");
+  }
+  function reviewPanel() {
+    var el = $("#review");
+    if (!el) return;
+    var ids = reviewKeys(S.ch), nN = 0, nS = 0, nT = 0;
+    ids.forEach(function (sid) { var r = rv(S.ch, sid); if (r.neb) nN++; if (r.scan) nS++; if (r.note) nT++; });
+    var open = el.dataset.open === "1";
+    el.innerHTML = "<b>Your Step 2 review</b> (" + esc(CHN[S.ch]) + "): " + nN + " NEB start" + (nN === 1 ? "" : "s") + " and " + nS + " SCAN start" +
+      (nS === 1 ? "" : "s") + " ticked, " + nT + " note" + (nT === 1 ? "" : "s") + ". Tick a start in the step window (<i>3D: NEB start</i>, <i>3D: SCAN</i>). " +
+      "<button data-r='cmd'>" + (open ? "Hide" : "Show") + " the mechflow lines</button><button data-r='dl'>Download</button>" +
+      "<button data-r='imp'>Import</button><button data-r='clear'>Clear (" + esc(CHN[S.ch]) + ")</button>" +
+      "<input type='file' accept='.json,application/json' hidden>" +
+      "<div class='note'>Kept in this browser only" + (reviewStored ? "" : " (this browser does not keep it: download it before you close the page)") +
+      "; Download saves both chalcogens as a file, Import adds one (the newer entry wins).</div>" +
+      (open ? "<pre class='rvcmd'>" + esc(reviewCommands(S.ch)) + "</pre><button data-r='copy'>Copy</button>" : "");
+  }
+  (function () {
+    var el = $("#review");
+    if (!el) return;
+    el.addEventListener("click", function (e) {
+      var a = e.target.dataset.r;
+      if (a === "cmd") { el.dataset.open = el.dataset.open === "1" ? "0" : "1"; reviewPanel(); }
+      else if (a === "copy") {
+        var pre = $(".rvcmd", el), txt = pre ? pre.textContent : "";
+        var sel = function () { var r = document.createRange(); r.selectNodeContents(pre); var s_ = getSelection(); s_.removeAllRanges(); s_.addRange(r); };
+        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(function () { e.target.textContent = "Copied"; }, sel);
+        else sel();
+      } else if (a === "dl") {
+        var blob = new Blob([JSON.stringify({ what: "Step 2 review, Hydantoin proposed mechanisms (site)", saved: new Date().toISOString(), review: REVIEW }, null, 1)],
+          { type: "application/json" });
+        var link = document.createElement("a");
+        link.href = URL.createObjectURL(blob); link.download = "step2_review.json";
+        document.body.appendChild(link); link.click();
+        setTimeout(function () { URL.revokeObjectURL(link.href); link.remove(); }, 1000);
+      } else if (a === "imp") $("input[type=file]", el).click();
+      else if (a === "clear") {
+        if (!confirm("Clear your ticks and notes for the " + CHN[S.ch] + "? (Download them first to keep a copy.)")) return;
+        reviewKeys(S.ch).forEach(function (sid) { delete REVIEW[S.ch + "|" + sid]; });
+        saveReview(); tables();
+      }
+    });
+    el.addEventListener("change", function (e) {
+      var f = e.target.files && e.target.files[0];
+      if (!f) return;
+      var rd = new FileReader();
+      rd.onload = function () {
+        try {
+          var d = JSON.parse(rd.result), R = (d && d.review) || d, n = 0;
+          Object.keys(R).forEach(function (k) {
+            var r = R[k];
+            if (!/^[OS]\|S\d+[ab]?$/.test(k) || !r || typeof r !== "object") return;
+            var old = REVIEW[k];
+            if (!old || String(r.t || "") > String(old.t || "")) {
+              REVIEW[k] = { neb: !!r.neb, scan: !!r.scan, note: typeof r.note === "string" ? r.note.slice(0, 300) : "", t: String(r.t || "") }; n++;
+            }
+          });
+          saveReview(); tables();
+          alert(n + " step" + (n === 1 ? "" : "s") + " taken from " + f.name + ".");
+        } catch (err) { alert("Not a Step 2 review file (" + err.message + ")."); }
+      };
+      rd.readAsText(f);
+      e.target.value = "";
+    });
+  })();
   $("#sptable").addEventListener("click", function (e) { var r = e.target.closest("tr[data-s]"); if (r) openMol([r.getAttribute("data-s")]); });
   $("#sttable").addEventListener("click", function (e) { var r = e.target.closest("tr[data-t]"); if (r) openStep(r.getAttribute("data-t"), "fwd"); });
 

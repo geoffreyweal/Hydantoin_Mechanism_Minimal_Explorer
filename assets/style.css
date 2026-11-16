@@ -81,6 +81,11 @@ code { background: var(--accent-soft); padding: 0 4px; border-radius: 4px; }
 .win .tsswitch { position: absolute; top: 8px; right: 10px; z-index: 2; background: var(--panel); font-size: 12px; }
 .win .tsswitch button { padding: 2px 10px; }
 .v3d { position: relative; width: 100%; height: 420px; background: #fff; }
+/* the Reset view button on every 3D viewer (the viewer is always white, so fixed colours) */
+.v3d .v3dreset { position: absolute; top: 6px; right: 6px; z-index: 5; font: 12px/1.2 system-ui, sans-serif; padding: 3px 8px;
+  color: #222; background: rgba(255, 255, 255, 0.9); border: 1px solid #b8b8b8; border-radius: 4px; cursor: pointer; }
+.v3d .v3dreset:hover { background: #f0f0f0; border-color: #888; }
+.v3d .v3dreset:focus-visible { outline: 2px solid #1a73e8; outline-offset: 1px; }
 .tools { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 8px 10px; border-top: 1px solid var(--line); font-size: 12.5px; }
 .tools button, .tools a { font: inherit; font-size: 12.5px; padding: 2px 9px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel);
                           color: var(--ink); cursor: pointer; text-decoration: none; }
@@ -183,3 +188,14 @@ aside#routelist { width: 360px; flex: none; overflow: auto; border-right: 1px so
 .scaninfo li { margin: 2px 0; }
 .scaninfo .scanok { color: var(--ok, #2e7d32); }
 .scaninfo .scanbad { color: var(--bad, #b71c1c); }
+
+/* your Step 2 review: the tick and note in a step window's NEB / SCAN pane, the Steps tab's column and panel */
+.review { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; margin: 0 0 6px; padding: 5px 8px; border: 1px solid var(--line, #ccc); border-radius: 6px; }
+.review label { white-space: nowrap; font-weight: 600; }
+.review .rnote { flex: 1 1 260px; min-width: 0; font: inherit; padding: 3px 6px; }
+.reviewbar { margin: 6px 0 8px; padding: 6px 10px; border: 1px solid var(--line, #ccc); border-radius: 6px; line-height: 1.7; }
+.reviewbar button { margin-right: 6px; }
+.reviewbar .rvcmd { margin: 6px 0; padding: 8px; overflow-x: auto; white-space: pre; font-size: 12px; border: 1px solid var(--line, #ccc); border-radius: 4px; }
+td.rv { white-space: nowrap; }
+.rvok { color: var(--ok, #1b7f3b); font-weight: 600; }
+.rvnote { color: inherit; opacity: 0.85; }
