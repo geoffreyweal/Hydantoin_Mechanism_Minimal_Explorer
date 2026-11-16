@@ -189,7 +189,7 @@
     dir = rev ? "rev" : "fwd";
     var body = makeWin(sid + (rev ? " (backwards)" : ""), (rev ? "reverse of: " : "") + chText(st.name) + "  (" + CHN[ch] + ")", 900);
     body.innerHTML = "<div class='tabs'><button data-p='d' class='on'>Diagram</button><button data-p='p'>3D: TS guess and path</button>" +
-      "<button data-p='n'>3D: NEB start</button>" +
+      "<button data-p='n'>3D: NEB start</button><button data-p='s'>3D: SCAN</button>" +
       (st.dft.length ? "<button data-p='q'>3D: DFT</button>" : "") + "<button data-p='i'>Details</button></div>" +
       "<div class='pane on' data-p='d'><div class='seg evswitch' role='group' aria-label='Step or energy diagram' hidden><button data-ev='0'>Step</button>" +
       "<button data-ev='1'>Energy</button></div> <div class='seg tsswitch' role='group' aria-label='TS picture' hidden><button data-ts='2d'>2D</button>" +
@@ -202,6 +202,8 @@
       "<div class='pane' data-p='n'><div class='v3d'></div><div class='tools'><button data-a='play'>&#9654; Play</button>" +
       "<input type='range' min='0' max='1' value='0' aria-label='image'><span class='fr'></span>" +
       "<button data-a='labels'>Key atoms</button><a download>NEB start .xyz (ase gui)</a></div><div class='info note nebinfo'></div></div>" +
+      "<div class='pane' data-p='s'><div class='v3d'></div><div class='tools'><span class='fr'></span>" +
+      "<a download>SCAN start .xyz (ase gui)</a></div><div class='info note scaninfo'></div></div>" +
       (st.dft.length ? "<div class='pane' data-p='q'><div class='v3d'></div><div class='tools'><input type='range' min='0' value='0'><span class='fr'></span></div></div>" : "") +
       "<div class='pane' data-p='i'><div class='info'></div></div>";
     var tabs = $(".tabs", body);
@@ -209,7 +211,7 @@
       var p = e.target.dataset.p; if (!p) return;
       $$(".tabs button", body).forEach(function (b) { b.classList.toggle("on", b.dataset.p === p); });
       $$(".pane", body).forEach(function (b) { b.classList.toggle("on", b.dataset.p === p); });
-      if (p === "p") showPath(); if (p === "n") showNEB(); if (p === "q") showDFT();
+      if (p === "p") showPath(); if (p === "n") showNEB(); if (p === "s") showSCAN(); if (p === "q") showDFT();
     });
     // the TS above the arrow: the 2D sketch (.ts2d) or the 3D TS guess (.ts3d), when the drawing has both
     var dBox = $(".pane[data-p=d] .svgbox", body), sw = $(".pane[data-p=d] .tsswitch", body);
@@ -300,6 +302,41 @@
           }
         });
         return v;
+    }
+    /* the SCAN option: what a SCAN of the step would start from (built from the DFT structures as mechflow builds it),
+       the pair it drives (dashed) and where to (arrow) */
+    var sv = null;
+    function showSCAN() {
+      if (sv) return;
+      var pane = $(".pane[data-p=s]", body);
+      if (st.scanstart !== true) {
+        sv = true;
+        pane.innerHTML = "<div class='info'>No SCAN start for this step" + (typeof st.scanstart === "string" ? ": " + esc(st.scanstart) : "") + ".</div>";
+        return;
+      }
+      load("scan", ch, sid).then(function (P) {
+        var v = viewer3d($(".v3d", pane)), f = frames(P.xyz)[0];
+        sv = v;
+        v.addModel(P.xyz, "xyz"); styleAll(v, "ball"); v.zoomTo();
+        var a = f.atoms[P.i], b = f.atoms[P.j], pa = { x: a.x, y: a.y, z: a.z }, pb = { x: b.x, y: b.y, z: b.z };
+        v.addCylinder({ start: pa, end: pb, radius: 0.07, color: st.colour, dashed: true, fromCap: 1, toCap: 1 });
+        /* the arrow: how far, and which way, the SCAN moves the pair (drawn on the second atom, along the pair's line) */
+        var dx = b.x - a.x, dy = b.y - a.y, dz = b.z - a.z, L = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1, mv = P.to - P.d0;
+        var end = { x: b.x + dx / L * mv, y: b.y + dy / L * mv, z: b.z + dz / L * mv };
+        if (Math.abs(mv) > 0.05) v.addArrow({ start: pb, end: end, radius: 0.09, radiusRatio: 2.2, mid: 0.8, color: "#c62828" });
+        [[P.i, P.li], [P.j, P.lj]].forEach(function (q) { var t = f.atoms[q[0]]; if (t) v.addLabel(q[1], { position: { x: t.x, y: t.y, z: t.z }, fontSize: 12, fontColor: "black", backgroundColor: "white", backgroundOpacity: 0.8, inFront: true }); });
+        v.render();
+        $(".fr", pane).textContent = P.li + "–" + P.lj + ": " + P.d0.toFixed(2) + " → " + Number(P.to).toFixed(2) + " Å, " + P.n + " points";
+        $("a[download]", pane).href = "xyz/scan/Ch_" + ch + "/" + encodeURIComponent(sid) + "_scan_start.xyz";
+        var notes = (P.notes || []).map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("");
+        $(".scaninfo", pane).innerHTML = "<p><b>The SCAN option</b> (Step 2Ba; what mechflow runs when <code>neb.enabled</code> is false): " +
+          "it starts from " + esc(P.how) + " and " + (P.mode === "stretch" ? "stretches " : "brings together ") + esc(P.li) + "–" + esc(P.lj) +
+          " (dashed) from " + P.d0.toFixed(2) + " to " + Number(P.to).toFixed(2) + " Å (red arrow) in " + P.n + " points, " + P.step + " Å apart. " +
+          "At every point all the other atoms are optimised with only this distance held, and the highest point is the TS guess.</p>" +
+          "<p>Compared with the NEB: only the start is fixed. The path is whatever that relaxation finds, so the way a group comes in " +
+          "or leaves (along the p orbital, along a hydrogen bond) is not set by the start; the NEB fixes both ends, and its path is optimised between them.</p>" +
+          (notes ? "<p>How the start was built:</p><ul>" + notes + "</ul>" : "");
+      }).catch(function () { pane.innerHTML = "<div class='info'>No SCAN start for this step.</div>"; });
     }
     /* the NEB starting path: the step's two ends from the DFT structures (make_neb.py), ASE IDPP images between them */
     var nv = null;

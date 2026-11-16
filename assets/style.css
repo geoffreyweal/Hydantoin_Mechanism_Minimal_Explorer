@@ -179,3 +179,5 @@ aside#routelist { width: 360px; flex: none; overflow: auto; border-right: 1px so
 .nebflag { color: #b26a00; font-weight: 600; }
 .nebinfo ul { margin: 4px 0 8px 18px; padding: 0; }
 .nebinfo li { margin: 2px 0; }
+.scaninfo ul { margin: 4px 0 8px 18px; padding: 0; }
+.scaninfo li { margin: 2px 0; }
