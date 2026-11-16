@@ -181,3 +181,5 @@ aside#routelist { width: 360px; flex: none; overflow: auto; border-right: 1px so
 .nebinfo li { margin: 2px 0; }
 .scaninfo ul { margin: 4px 0 8px 18px; padding: 0; }
 .scaninfo li { margin: 2px 0; }
+.scaninfo .scanok { color: var(--ok, #2e7d32); }
+.scaninfo .scanbad { color: var(--bad, #b71c1c); }

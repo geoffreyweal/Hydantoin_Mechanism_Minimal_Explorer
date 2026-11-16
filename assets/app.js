@@ -335,8 +335,22 @@
           "At every point all the other atoms are optimised with only this distance held, and the highest point is the TS guess.</p>" +
           "<p>Compared with the NEB: only the start is fixed. The path is whatever that relaxation finds, so the way a group comes in " +
           "or leaves (along the p orbital, along a hydrogen bond) is not set by the start; the NEB fixes both ends, and its path is optimised between them.</p>" +
+          scanCheck(P) +
           (notes ? "<p>How the start was built:</p><ul>" + notes + "</ul>" : "");
       }).catch(function () { pane.innerHTML = "<div class='info'>No SCAN start for this step.</div>"; });
+    }
+    /* the chemistry check of a SCAN start (make_neb.judge_start): what does not make sense in it, why where it cannot be
+       helped, and the NEB start's end where that one is set up for the step */
+    function scanCheck(P) {
+      var c = P.check || [];
+      if (!c.length) return "<p class='scanok'><b>Chemistry check:</b> nothing out of place (each proton on line with the lone pair " +
+        "it goes to, each nucleophile with its lone pair at its carbon, on the face that gives the product's hands).</p>";
+      return "<p class='scanbad'><b>Chemistry check:</b> this start does not make chemical sense as it is:</p><ul>" +
+        c.map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("") + "</ul>" +
+        (P.inherent ? "<p>It cannot be helped: " + esc(P.inherent) + ".</p>" : "") +
+        (P.setup ? "<p>The NEB start's " + esc(P.setup) + " end (<i>3D: NEB start</i>, its " + (P.setup === "left" ? "first" : "last") +
+          " image) is set up for the step. mechflow builds a SCAN start from the Step 1 structures, so a SCAN would have to be " +
+          "started from a structure like that one by hand.</p>" : "");
     }
     /* the NEB starting path: the step's two ends from the DFT structures (make_neb.py), ASE IDPP images between them */
     var nv = null;
