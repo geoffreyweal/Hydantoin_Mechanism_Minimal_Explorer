@@ -236,3 +236,8 @@ th .sarr { font-size: 0.7em; margin-left: 3px; }
 .review .rvwho { color: var(--muted); font-size: 12px; white-space: nowrap; }
 td.rv.rvlocal { box-shadow: inset 3px 0 0 var(--accent); }
 .rverr { color: var(--bad); }
+/* the Steps tab: the review panel above the table (a tab is a flex row, which put the panel beside the table and
+   squeezed the table to a sliver once the panel's text grew) */
+#tab-steps.on { flex-direction: column; }
+#tab-steps .reviewbar { flex: none; margin: 8px 18px 0; max-height: 40vh; overflow: auto; }
+#tab-steps .tablewrap { min-height: 0; }
