@@ -1,0 +1,243 @@
+{
+ "about": "The Step 2 review of the Hydantoin Proposed Mechanisms website, written by the site when a signed-in collaborator ticks a start: per chalcogen and step (\"O|S10\"), neb / scan = the NEB / SCAN start is fine, tsp = start the NEB from the TS-guess path, note, by = GitHub login, t = when. The newest change of an entry wins; an entry with nothing ticked and no note is one whose ticks were taken off.",
+ "format": "hydantoin-minimal-review",
+ "review": {
+  "O|S1": {
+   "by": "geoffreyweal",
+   "scan": true,
+   "t": "2026-11-16T23:08:40.225Z"
+  },
+  "O|S2a": {
+   "by": "geoffreyweal",
+   "scan": true,
+   "t": "2026-11-16T23:25:51.149Z"
+  },
+  "O|S2b": {
+   "by": "geoffreyweal",
+   "scan": true,
+   "t": "2026-11-16T23:26:26.065Z"
+  },
+  "O|S4b": {
+   "by": "geoffreyweal",
+   "scan": true,
+   "t": "2026-11-17T00:27:52.110Z"
+  },
+  "O|S5b": {
+   "by": "geoffreyweal",
+   "scan": true,
+   "t": "2026-11-16T23:49:13.761Z"
+  },
+  "O|S6a": {
+   "by": "geoffreyweal",
+   "scan": true,
+   "t": "2026-11-17T00:08:50.028Z"
+  },
+  "O|S6b": {
+   "by": "geoffreyweal",
+   "scan": true,
+   "t": "2026-11-17T00:13:13.692Z"
+  },
+  "O|S7a": {
+   "by": "geoffreyweal",
+   "scan": true,
+   "t": "2026-11-17T00:16:31.905Z"
+  },
+  "O|S7b": {
+   "by": "geoffreyweal",
+   "scan": true,
+   "t": "2026-11-17T00:21:21.853Z"
+  },
+  "O|S10": {
+   "by": "geoffreyweal",
+   "scan": true,
+   "t": "2026-11-16T22:51:54.593Z"
+  },
+  "O|S11a": {
+   "by": "geoffreyweal",
+   "scan": true,
+   "t": "2026-11-16T23:52:52.222Z"
+  },
+  "O|S11b": {
+   "by": "geoffreyweal",
+   "neb": true,
+   "t": "2026-11-16T23:50:41.820Z"
+  },
+  "O|S13a": {
+   "by": "geoffreyweal",
+   "scan": true,
+   "t": "2026-11-17T00:11:51.213Z"
+  },
+  "O|S13b": {
+   "by": "geoffreyweal",
+   "scan": true,
+   "t": "2026-11-17T00:15:39.584Z"
+  },
+  "O|S14b": {
+   "by": "geoffreyweal",
+   "scan": true,
+   "t": "2026-11-17T00:27:35.751Z"
+  },
+  "O|S15a": {
+   "by": "geoffreyweal",
+   "neb": true,
+   "t": "2026-11-17T00:26:19.170Z"
+  },
+  "O|S15b": {
+   "by": "geoffreyweal",
+   "scan": true,
+   "t": "2026-11-17T00:30:02.620Z"
+  },
+  "O|S16a": {
+   "by": "geoffreyweal",
+   "neb": true,
+   "t": "2026-11-17T01:17:07.802Z"
+  },
+  "O|S16b": {
+   "by": "geoffreyweal",
+   "t": "2026-11-17T01:18:48.275Z",
+   "tsp": true
+  },
+  "O|S17a": {
+   "by": "geoffreyweal",
+   "neb": true,
+   "note": "note that in this case the conformation is a bit different, might need more images",
+   "t": "2026-11-16T23:14:49.693Z"
+  },
+  "O|S17b": {
+   "by": "geoffreyweal",
+   "t": "2026-11-17T01:29:50.208Z",
+   "tsp": true
+  },
+  "O|S18a": {
+   "by": "geoffreyweal",
+   "scan": true,
+   "t": "2026-11-17T00:06:49.809Z"
+  },
+  "O|S19a": {
+   "by": "geoffreyweal",
+   "scan": true,
+   "t": "2026-11-17T00:07:47.043Z"
+  },
+  "O|S20a": {
+   "by": "geoffreyweal",
+   "scan": true,
+   "t": "2026-11-17T00:12:29.569Z"
+  },
+  "O|S20b": {
+   "by": "geoffreyweal",
+   "scan": true,
+   "t": "2026-11-17T00:15:08.077Z"
+  },
+  "O|S21a": {
+   "by": "geoffreyweal",
+   "scan": true,
+   "t": "2026-11-17T01:18:02.013Z"
+  },
+  "O|S21b": {
+   "by": "geoffreyweal",
+   "scan": true,
+   "t": "2026-11-17T01:19:56.833Z"
+  },
+  "O|S22a": {
+   "by": "geoffreyweal",
+   "scan": true,
+   "t": "2026-11-17T01:18:12.126Z"
+  },
+  "O|S22b": {
+   "by": "geoffreyweal",
+   "scan": true,
+   "t": "2026-11-17T01:20:08.421Z"
+  },
+  "O|S23": {
+   "by": "geoffreyweal",
+   "scan": true,
+   "t": "2026-11-16T23:15:31.173Z"
+  },
+  "O|S24a": {
+   "by": "geoffreyweal",
+   "scan": true,
+   "t": "2026-11-16T23:18:28.701Z"
+  },
+  "O|S24b": {
+   "by": "geoffreyweal",
+   "scan": true,
+   "t": "2026-11-16T23:17:52.395Z"
+  },
+  "O|S25": {
+   "by": "geoffreyweal",
+   "neb": true,
+   "t": "2026-11-16T23:47:00.865Z"
+  },
+  "O|S26": {
+   "by": "geoffreyweal",
+   "scan": true,
+   "t": "2026-11-16T22:52:43.567Z"
+  },
+  "O|S27": {
+   "by": "geoffreyweal",
+   "neb": true,
+   "t": "2026-11-16T23:09:21.064Z"
+  },
+  "O|S29": {
+   "by": "geoffreyweal",
+   "neb": true,
+   "t": "2026-11-16T23:43:45.906Z"
+  },
+  "O|S30": {
+   "by": "geoffreyweal",
+   "scan": true,
+   "t": "2026-11-16T23:09:49.610Z"
+  },
+  "O|S31a": {
+   "by": "geoffreyweal",
+   "neb": true,
+   "t": "2026-11-16T23:53:50.822Z"
+  },
+  "O|S31b": {
+   "by": "geoffreyweal",
+   "neb": true,
+   "t": "2026-11-17T00:03:22.877Z"
+  },
+  "O|S32a": {
+   "by": "geoffreyweal",
+   "neb": true,
+   "t": "2026-11-17T00:25:42.963Z"
+  },
+  "O|S32b": {
+   "by": "geoffreyweal",
+   "neb": true,
+   "t": "2026-11-17T01:20:44.571Z"
+  },
+  "O|S35a": {
+   "by": "geoffreyweal",
+   "neb": true,
+   "t": "2026-11-17T00:10:49.112Z"
+  },
+  "O|S35b": {
+   "by": "geoffreyweal",
+   "neb": true,
+   "t": "2026-11-17T00:12:52.804Z"
+  },
+  "O|S36a": {
+   "by": "geoffreyweal",
+   "scan": true,
+   "t": "2026-11-16T23:56:14.488Z"
+  },
+  "O|S36b": {
+   "by": "geoffreyweal",
+   "neb": true,
+   "t": "2026-11-17T00:04:34.032Z"
+  },
+  "O|S38a": {
+   "by": "geoffreyweal",
+   "scan": true,
+   "t": "2026-11-17T00:05:38.066Z"
+  },
+  "O|S38b": {
+   "by": "geoffreyweal",
+   "scan": true,
+   "t": "2026-11-17T00:05:51.342Z"
+  }
+ },
+ "version": 1
+}
