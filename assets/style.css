@@ -208,3 +208,6 @@ th .sarr { font-size: 0.7em; margin-left: 3px; }
 .scaninfo .scanone { font-weight: 500; }
 .rvtsp { color: var(--accent, #1d4ed8); font-weight: 600; }
 .review.tspdone { color: var(--muted, #555); font-style: italic; }
+.rvtodo { margin-top: 6px; line-height: 1.6; }
+.rvtodo a { margin-right: 2px; }
+.rvtodo.rvwait { color: var(--muted, #555); }

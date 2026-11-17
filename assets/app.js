@@ -1648,13 +1648,37 @@
       "<input type='file' accept='.json,application/json' hidden>" +
       "<div class='note'>Kept in this browser only" + (reviewStored ? "" : " (this browser does not keep it: download it before you close the page)") +
       "; Download saves both chalcogens as a file, Import adds one (the newer entry wins).</div>" +
-      (open ? "<pre class='rvcmd'>" + esc(reviewCommands(S.ch)) + "</pre><button data-r='copy'>Copy</button>" : "");
+      (open ? "<pre class='rvcmd'>" + esc(reviewCommands(S.ch)) + "</pre><button data-r='copy'>Copy</button>" : "") +
+      reviewTodo();
+  }
+  /* the steps you could tick now (Geoff, 2026-11-17: "which jobs ... do not have ticks for which I could tick because I
+     have all the intermediates needed"): an NEB start from DFT structures and not crossed out, but no tick yet; and the
+     steps still waiting for the DFT structures of their intermediates */
+  function reviewTodo() {
+    var st = M().steps, ready = [], waiting = [];
+    Object.keys(st).sort(nat).forEach(function (s) {
+      if (st[s].fails && st[s].fails.length) return;
+      if (st[s].neb === true) { if (!happy(rv(S.ch, s))) ready.push(s); }
+      else waiting.push(s);
+    });
+    var link = function (s) { return "<a href='#' data-step='" + esc(s) + "'>" + esc(s) + "</a>"; };
+    return "<div class='rvtodo'><b>Ready to tick, not ticked yet</b> (" + ready.length + "; both ends from DFT structures): " +
+      (ready.length ? ready.map(link).join(" ") : "none") + "</div>" +
+      (waiting.length ? "<div class='rvtodo rvwait'><b>Waiting for the DFT structures of their intermediates</b> (" + waiting.length + "): " +
+        waiting.map(function (s) { return "<span title='" + esc(typeof st[s].neb === "string" ? st[s].neb : "") + "'>" + esc(s) + "</span>"; }).join(" ") +
+        "</div>" : "");
   }
   (function () {
     var el = $("#review");
     if (!el) return;
     el.addEventListener("click", function (e) {
       var a = e.target.dataset.r;
+      if (e.target.dataset.step) {                       // a step ready to tick: its window, on its NEB start
+        e.preventDefault();
+        openStep(e.target.dataset.step, "fwd");
+        setTimeout(function () { var b = document.querySelector(".win .tabs button[data-p='n']"); if (b) b.click(); }, 300);
+        return;
+      }
       if (a === "cmd") { el.dataset.open = el.dataset.open === "1" ? "0" : "1"; reviewPanel(); }
       else if (a === "copy") {
         var pre = $(".rvcmd", el), txt = pre ? pre.textContent : "";
