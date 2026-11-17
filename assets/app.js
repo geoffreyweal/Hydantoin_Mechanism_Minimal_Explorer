@@ -1,6 +1,7 @@
 /* Hydantoin Proposed Mechanisms: the proposed mechanisms of the two mechflow projects (Ch_O, Ch_S), each family in an
-   A version (-> P1a) and a B version (-> P1b), their species and steps, structures in 3D and the TS guesses. A static page: it reads only this site's own files
-   (data/*.js, loaded as scripts so that it also works from file://) and talks to nothing else. */
+   A version (-> P1a) and a B version (-> P1b), their species and steps, structures in 3D and the TS guesses. It reads this site's own files
+   (data/*.js, loaded as scripts so that it also works from file://); only the Step 2 review is read from (and, signed in
+   with GitHub, saved to) the site's GitHub repository, by review.js (window.Rv). */
 (function () {
   "use strict";
   var S = { ch: "O", tab: "mech", mech: null, zoom: null, top: 100, mts3d: false, ts3d: false, energy: false, elevel: "sp", ezoom: null, nenergy: false, senergy: false, showall: false };   // TS pictures: mechanism view, step windows
@@ -20,23 +21,19 @@
   function savePrefs() {
     try { localStorage.setItem("hpm.prefs", JSON.stringify({ mts3d: S.mts3d, ts3d: S.ts3d, energy: S.energy, elevel: S.elevel, nenergy: S.nenergy, senergy: S.senergy, showall: S.showall })); } catch (e) { /* no storage */ }
   }
-  /* your Step 2 review: the NEB and SCAN starts you are happy with, and a note per step, per chalcogen
-     ({"O|S10": {neb: true, scan: false, note: "...", t: "<when>"}}). Kept in this browser only (localStorage
-     'hpm.review'); the Steps tab downloads it as a file, imports one, and writes the mechflow approve lines. */
-  var REVIEW = (function () {
-    try { var r = JSON.parse(localStorage.getItem("hpm.review") || "{}"); return r && typeof r === "object" ? r : {}; } catch (e) { return {}; }
-  })();
-  var reviewStored = true;
-  function saveReview() {
-    try { localStorage.setItem("hpm.review", JSON.stringify(REVIEW)); reviewStored = true; } catch (e) { reviewStored = false; }
-  }
-  function rv(ch, sid) { return REVIEW[ch + "|" + sid] || {}; }
-  function setRv(ch, sid, k, v) {
-    var key = ch + "|" + sid, r = REVIEW[key] || {};
-    r[k] = v; r.t = new Date().toISOString();
-    if (!r.neb && !r.scan && !r.tsp && !r.note) delete REVIEW[key]; else REVIEW[key] = r;
-    saveReview();
-    tables();
+  /* the Step 2 review: the NEB and SCAN starts that are fine, and a note per step, per chalcogen ({neb, scan, tsp, note,
+     by, t, saved}). Kept in the site's GitHub repository (review.js: review.json on the review branch) and saved as you
+     tick once you are signed in with GitHub; changes not saved yet stay in this browser (localStorage 'hpm.review'). The
+     Steps tab downloads it as a file, imports one, and writes the mechflow approve lines. Every change, here or from the
+     repository, redraws the tables, the network's ticks and the open review bars (Rv.onChange, at the start). */
+  var Rv = window.Rv;
+  function rv(ch, sid) { return Rv.entry(ch, sid); }
+  function setRv(ch, sid, k, v) { Rv.set(ch, sid, k, v); }
+  function rvWho(r) {              // who ticked it and when, or that it is not saved yet
+    if (!r || !r.t) return "";
+    if (!r.saved) return Rv.shared ? "not saved to the repository yet" : "";
+    var d = new Date(r.t), when = isNaN(d) ? "" : d.toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+    return (r.by ? "by @" + r.by : "") + (when ? (r.by ? ", " : "") + when : "");
   }
 
   /* the build tag of this page (app.js?v=...), added to the data files loaded later so that a new build is never mixed
@@ -427,7 +424,8 @@
         (r[kind] ? " checked" : "") + "> " + (kind === "tsp" ? "Start this step's NEB from this TS-guess path (ends from the drawing, through its TS guess)" :
         "I am happy with this " + (kind === "neb" ? "NEB start" : "SCAN start")) + "</label>" +
         "<input type='text' class='rnote' maxlength='300' aria-label='your note on this step' placeholder='your note on " + esc(sid) +
-        " (kept in this browser; Steps tab: download, mechflow approve lines)' value='" + esc(r.note || "") + "'></div>";
+        (Rv.shared ? " (saved with the ticks; Steps tab: mechflow approve lines)" : " (kept in this browser; Steps tab: download, mechflow approve lines)") +
+        "' value='" + esc(r.note || "") + "'><span class='rvwho'>" + esc(rvWho(r)) + "</span></div>";
     }
     /* the NEB starting path: the step's two ends from the DFT structures (make_neb.py), ASE IDPP images between them */
     var nv = null;
@@ -477,6 +475,18 @@
       if (o !== w && o.dataset.ch === w.dataset.ch && o.dataset.sid === w.dataset.sid) $(".rnote", o).value = t.value;
     });
   });
+  /* the review bars of the open step windows, after a change here, in another tab of the site or from the repository
+     (a note being typed is left alone) */
+  function refreshBars() {
+    $$(".review[data-sid]").forEach(function (w) {
+      var r = rv(w.dataset.ch, w.dataset.sid);
+      $$("input[data-ok]", w).forEach(function (b) { b.checked = !!r[b.dataset.ok]; });
+      var n = $(".rnote", w);
+      if (n && n !== document.activeElement && n.value.trim() !== (r.note || "")) n.value = r.note || "";
+      var who = $(".rvwho", w);
+      if (who) who.textContent = rvWho(r);
+    });
+  }
 
   // ------------------------------------------------------------------ mechanisms tab
   function query() { return ($("#q").value || "").trim().toLowerCase(); }
@@ -1577,14 +1587,15 @@
       rows.push({ key: [s, chText(st[s].name).toLowerCase(), st[s].reaction, used,
                         st[s].neb === true ? (st[s].neb_flags ? 1 : 0) : 2, happy(r0) ? 0 : (r0.tsp ? 1 : (r0.note ? 2 : ""))], html:
       "<tr data-t='" + esc(s) + "'><td class='id' style='color:" + esc(st[s].colour) + "'>" + esc(s) +
-        (happy(r0) ? " <span class='rvtick' title='you ticked " + esc(happyWhat(r0)) + "'>&#10003;</span>" : "") +
+        (happy(r0) ? " <span class='rvtick' title='ticked: " + esc(happyWhat(r0) + (rvWho(r0) ? " (" + rvWho(r0) + ")" : "")) + "'>&#10003;</span>" : "") +
         "</td><td>" + esc(chText(st[s].name)) +
         (st[s].fails && st[s].fails.length ? " <span class='xfail'>&#10007; cannot happen as drawn: " + esc(st[s].fails.join(", ")) + " does not hold (DFT)</span>" : "") +
         "</td><td>" + esc(st[s].reaction) +
         "</td><td>" + esc(used) + "</td><td class='neb'>" +
         (st[s].neb === true ? (st[s].neb_flags ? "<span class='nebflag' title='" + esc(st[s].neb_flags) + "'>&#9888; look</span>" :
           "<span class='nebok'" + (st[s].nebdrawn ? " title='from the drawing" + (st[s].nebts ? ", through the TS guess" : "") + "'>&#10003;&nbsp;drawn" : ">&#10003;") + "</span>")
-         : "<span class='nebno' title='" + esc(typeof st[s].neb === "string" ? st[s].neb : "") + "'>&ndash;</span>") + "</td><td class='rv'>" +
+         : "<span class='nebno' title='" + esc(typeof st[s].neb === "string" ? st[s].neb : "") + "'>&ndash;</span>") + "</td><td class='rv" +
+        (r0.t && !r0.saved && Rv.shared ? " rvlocal' title='not saved to the repository yet (sign in with GitHub to save it)'>" : "'>") +
         (function (r) {
           return (r.neb ? "<span class='rvok'>NEB&nbsp;&#10003;</span> " : "") + (r.scan ? "<span class='rvok'>SCAN&nbsp;&#10003;</span> " : "") +
             (r.tsp ? "<span class='rvtsp' title='start its NEB from the TS-guess path (send the list to Claude)'>TS&nbsp;path</span> " : "") +
@@ -1593,7 +1604,7 @@
     });
     $("#sttable").innerHTML = sortHead("st", [["ID"], ["what happens"], ["reaction"], ["mechanisms"],
       ["NEB start", "the NEB starting path (3D: NEB start in the step window)"],
-      ["yours", "your Step 2 review: tick a start in the step window (3D: NEB start, 3D: SCAN)"]]) + "<tbody>" +
+      ["review", "the Step 2 review: tick a start in the step window (3D: NEB start, 3D: SCAN, the TS-guess path)"]]) + "<tbody>" +
       sortRows("st", rows).map(function (r) { return r.html; }).join("") + "</tbody>";
     reviewPanel();
     tickArrows();                    // the review may have changed (tick, Clear, Import): the network's ticks follow
@@ -1613,8 +1624,24 @@
       if (th && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); go(th); }
     });
   });
-  function reviewKeys(ch) {
-    return Object.keys(REVIEW).filter(function (k) { return k.split("|")[0] === ch; }).map(function (k) { return k.split("|")[1]; }).sort(nat);
+  function reviewKeys(ch) { return Rv.keys(ch); }
+  /* where the review is kept, and whether this browser's changes are saved */
+  function reviewWhere() {
+    var n = Rv.unsaved, st = Rv.saveState, pl = n > 1;
+    if (!Rv.shared) return "Kept in this browser only" + (Rv.fileMode ? " (the page was opened from the disk)" : "") +
+      (Rv.storedLocally ? "." : " (this browser does not keep it: download it before you close the page).");
+    var s = Rv.loaded ? "The ticks and notes are kept in <code>" + esc(Rv.cfg.file) + "</code> on the <code>" + esc(Rv.cfg.branch) +
+      "</code> branch of the site's GitHub repository." : Rv.error ? "<span class='rverr'>The review could not be read from GitHub (" + esc(Rv.error) + ").</span>" :
+      "Reading the review from GitHub…";
+    if (Rv.hasPush) s += st.state === "error" ? " <span class='rverr'>Not saved: " + esc(st.msg) + "</span>" :
+      " Signed in as @" + esc(Rv.user.login) + ": each change is saved there a moment after you make it" +
+      (n ? " (" + n + " waiting)" : st.state === "saved" ? " (all saved)" : "") + ".";
+    else if (Rv.user) s += " <span class='rverr'>@" + esc(Rv.user.login) + " has no push access to the repository" +
+      (n ? ": " + n + " change" + (pl ? "s stay" : " stays") + " in this browser" : "") + ".</span>";
+    else s += n ? " <span class='rverr'>" + n + " change" + (pl ? "s are" : " is") + " only in this browser: sign in with GitHub (top right) to save " +
+      (pl ? "them" : "it") + ".</span>" : " Sign in with GitHub (top right) to tick and have it saved there.";
+    if (!Rv.storedLocally) s += " This browser does not keep changes that are not saved yet.";
+    return s;
   }
   /* the lines to run in the project on the cluster: the NEB starts you ticked, approved with your notes */
   function reviewCommands(ch) {
@@ -1640,14 +1667,13 @@
     var ids = reviewKeys(S.ch), nN = 0, nS = 0, nT = 0, nP = 0;
     ids.forEach(function (sid) { var r = rv(S.ch, sid); if (r.neb) nN++; if (r.scan) nS++; if (r.note) nT++; if (r.tsp) nP++; });
     var open = el.dataset.open === "1";
-    el.innerHTML = "<b>Your Step 2 review</b> (" + esc(CHN[S.ch]) + "): " + nN + " NEB start" + (nN === 1 ? "" : "s") + " and " + nS + " SCAN start" +
+    el.innerHTML = "<b>Step 2 review</b> (" + esc(CHN[S.ch]) + "): " + nN + " NEB start" + (nN === 1 ? "" : "s") + " and " + nS + " SCAN start" +
       (nS === 1 ? "" : "s") + " ticked, " + nT + " note" + (nT === 1 ? "" : "s") + "; " + nP + " step" + (nP === 1 ? "" : "s") +
       " to start from the TS-guess path. Tick a start in the step window (<i>3D: NEB start</i>, <i>3D: SCAN</i>, the TS-guess path). " +
       "<button data-r='cmd'>" + (open ? "Hide" : "Show") + " the mechflow lines</button><button data-r='dl'>Download</button>" +
       "<button data-r='imp'>Import</button><button data-r='clear'>Clear (" + esc(CHN[S.ch]) + ")</button>" +
       "<input type='file' accept='.json,application/json' hidden>" +
-      "<div class='note'>Kept in this browser only" + (reviewStored ? "" : " (this browser does not keep it: download it before you close the page)") +
-      "; Download saves both chalcogens as a file, Import adds one (the newer entry wins).</div>" +
+      "<div class='note'>" + reviewWhere() + " Download saves both chalcogens as a file, Import adds one (the newer entry wins).</div>" +
       (open ? "<pre class='rvcmd'>" + esc(reviewCommands(S.ch)) + "</pre><button data-r='copy'>Copy</button>" : "") +
       reviewTodo();
   }
@@ -1686,7 +1712,7 @@
         if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(function () { e.target.textContent = "Copied"; }, sel);
         else sel();
       } else if (a === "dl") {
-        var blob = new Blob([JSON.stringify({ what: "Step 2 review, Hydantoin proposed mechanisms (site)", saved: new Date().toISOString(), review: REVIEW }, null, 1)],
+        var blob = new Blob([JSON.stringify({ what: "Step 2 review, Hydantoin proposed mechanisms (site)", saved: new Date().toISOString(), review: Rv.all() }, null, 1)],
           { type: "application/json" });
         var link = document.createElement("a");
         link.href = URL.createObjectURL(blob); link.download = "step2_review.json";
@@ -1694,9 +1720,9 @@
         setTimeout(function () { URL.revokeObjectURL(link.href); link.remove(); }, 1000);
       } else if (a === "imp") $("input[type=file]", el).click();
       else if (a === "clear") {
-        if (!confirm("Clear your ticks and notes for the " + CHN[S.ch] + "? (Download them first to keep a copy.)")) return;
-        reviewKeys(S.ch).forEach(function (sid) { delete REVIEW[S.ch + "|" + sid]; });
-        saveReview(); tables();
+        if (!confirm("Take off every tick and note for the " + CHN[S.ch] + "?" + (Rv.hasPush ? " They come off in the site's repository too." : "") +
+                     " (Download them first to keep a copy.)")) return;
+        Rv.clear(S.ch);
       }
     });
     el.addEventListener("change", function (e) {
@@ -1705,16 +1731,7 @@
       var rd = new FileReader();
       rd.onload = function () {
         try {
-          var d = JSON.parse(rd.result), R = (d && d.review) || d, n = 0;
-          Object.keys(R).forEach(function (k) {
-            var r = R[k];
-            if (!/^[OS]\|S\d+[ab]?$/.test(k) || !r || typeof r !== "object") return;
-            var old = REVIEW[k];
-            if (!old || String(r.t || "") > String(old.t || "")) {
-              REVIEW[k] = { neb: !!r.neb, scan: !!r.scan, tsp: !!r.tsp, note: typeof r.note === "string" ? r.note.slice(0, 300) : "", t: String(r.t || "") }; n++;
-            }
-          });
-          saveReview(); tables();
+          var d = JSON.parse(rd.result), n = Rv.importReview((d && d.review) || d);
           alert(n + " step" + (n === 1 ? "" : "s") + " taken from " + f.name + ".");
         } catch (err) { alert("Not a Step 2 review file (" + err.message + ")."); }
       };
@@ -1773,6 +1790,58 @@
   });
   window.addEventListener("resize", function () { if (zoomNow() === "fit") zoom("fit"); if (S.tab === "net" && net.el && !moves()) netFit(); });
 
+  // ------------------------------------------------------------------ signing in with GitHub (review.js), to save the review
+  function node(tag, attrs, kids) {
+    var e = document.createElement(tag);
+    Object.keys(attrs || {}).forEach(function (k) {
+      if (attrs[k] === null || attrs[k] === undefined) return;
+      if (k === "onclick") e.addEventListener("click", attrs[k]); else e.setAttribute(k, attrs[k]);
+    });
+    (kids || []).forEach(function (c) { e.appendChild(typeof c === "string" ? document.createTextNode(c) : c); });
+    return e;
+  }
+  var signInMsg = "", rememberMe = false;
+  function renderAuth() {
+    var box = $("#auth");
+    if (!box) return;
+    var u = Rv.user, st = Rv.saveState, n = Rv.unsaved;
+    box.textContent = "";
+    if (!Rv.shared) return;                          // from the disk: the review stays in this browser (the Steps tab says so)
+    if (Rv.loading && !Rv.loaded) box.appendChild(node("span", { class: "annstate" }, ["reading the review…"]));
+    else if (!Rv.loaded && Rv.error) box.appendChild(node("span", { class: "annstate off", title: Rv.error }, ["review unavailable"]));
+    if (u) {
+      var until = Rv.expires ? "signed in until " + new Date(Rv.expires).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
+      box.appendChild(node("span", { class: "who", title: (u.name || u.login) + (until ? " (" + until + ")" : "") },
+        [node("i", { class: "ini" }, [u.login.charAt(0).toUpperCase()]), "@" + u.login]));
+      if (!Rv.hasPush) {
+        box.appendChild(node("span", { class: "role ro", title: "no push access to " + Rv.cfg.owner + "/" + Rv.cfg.repo +
+          " (or the site's GitHub App is not installed on it): the ticks stay in this browser" }, ["read only"]));
+      } else {
+        var txt = st.state === "error" ? "not saved: " + st.msg : st.state === "saving" ? "saving…" :
+          n ? n + " unsaved change" + (n > 1 ? "s" : "") : st.state === "saved" ? "review saved" : "";
+        if (txt) box.appendChild(node("span", { class: "save s-" + (st.state === "error" ? "error" : st.state === "saving" || n ? "saving" : "saved"),
+          title: st.msg || txt }, [txt.length > 70 ? txt.slice(0, 68) + "…" : txt]));
+        if (st.state === "error") box.appendChild(node("button", { class: "btn", onclick: function () { Rv.saveNow(); } }, ["retry"]));
+      }
+      box.appendChild(node("button", { class: "btn", id: "signout", title: "the ticks not saved yet stay in this browser", onclick: function () { Rv.signOut(); } }, ["Sign out"]));
+      return;
+    }
+    var err = Rv.authError || signInMsg;
+    if (err) box.appendChild(node("span", { class: "autherr", role: "alert", title: err }, [err]));
+    if (!Rv.signInReady) { box.appendChild(node("span", { class: "signnote", title: Rv.signInNote }, [Rv.signInNote])); return; }
+    if (n) box.appendChild(node("span", { class: "save s-error", title: "kept in this browser until you sign in" },
+      [n + " unsaved change" + (n > 1 ? "s" : "") + ": sign in to save"]));
+    var rem = node("input", { type: "checkbox", id: "remember" });
+    rem.checked = rememberMe;
+    rem.addEventListener("change", function () { rememberMe = rem.checked; });
+    box.appendChild(node("label", { class: "remember", title: "keep the sign-in in this browser after the tab is closed (about 8 hours)" }, [rem, " remember"]));
+    box.appendChild(node("button", { class: "btn primary", id: "signin", title: "sign in to save the Step 2 ticks and notes to the site's GitHub repository",
+      onclick: function (e) {
+        e.target.disabled = true; signInMsg = "";
+        Rv.signIn(rem.checked).then(null, function (x) { e.target.disabled = false; signInMsg = "could not sign in: " + x.message; renderAuth(); });
+      } }, ["Sign in with GitHub"]));
+  }
+
   // ------------------------------------------------------------------ start
   var H = Object.create(null);
   // deep links: #ch=S&m=M2B&step=S7b&dir=fwd&mol=I7b,R2&tab=steps&pane=p&ts=3d&tab=net&route=M6A&view=energy&level=dft
@@ -1789,6 +1858,8 @@
   if ((H.m && baseMech(H.m) && !mechOK(H.m)) || (H.route && NW() && routeOf(H.route) && (routeOf(H.route).fails || []).length))
     S.showall = true;                                                             // a link to something hidden shows it
   $("#showall").checked = S.showall;
+  Rv.onChange(function () { tables(); refreshBars(); renderAuth(); });     // the review changed: here, in another tab, or on GitHub
+  renderAuth();
   famList(); tables(); about(); applyMechTS(); applyView();
   showMech(baseMech(H.m) ? H.m : firstMech());
   showNet();
@@ -1797,4 +1868,5 @@
   if (H.step) openStep(H.step, H.dir || "fwd");
   if (H.mol) openMol(H.mol.split(","));
   if (/^[a-z]$/.test(H.pane || "")) setTimeout(function () { var b = document.querySelector(".win .tabs button[data-p='" + H.pane + "']"); if (b) b.click(); }, 300);
+  Rv.init();                       // read the review from the repository (and finish a sign-in coming back from GitHub)
 })();

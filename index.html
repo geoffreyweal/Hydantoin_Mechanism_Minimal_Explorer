@@ -3,13 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<!-- A static page: only this site's own files run here, and the page connects to nothing. file: is listed so that the
-     page also works when opened from the disk. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' file:; style-src 'self' file: 'unsafe-inline'; img-src 'self' file: data: blob:; connect-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'">
+<!-- Only this site's own files run here. The page connects only to GitHub, to read and save the Step 2 review
+     (review.json on the repository's review branch; assets/review.js), and, while someone signs in, to the sign-in
+     Worker (make_website.py writes its address in place of the marker, from tokenUrl in web/config.js). file: is listed
+     so that the page also works when opened from the disk. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' file:; style-src 'self' file: 'unsafe-inline'; img-src 'self' file: data: blob:; connect-src https://api.github.com https://raw.githubusercontent.com https://hme-signin.geoffrey-weal.workers.dev; base-uri 'none'; form-action 'none'; object-src 'none'">
 <meta name="referrer" content="no-referrer">
 <title>Hydantoin Proposed Mechanisms</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="assets/style.css?v=20261117142755">
+<link rel="stylesheet" href="assets/style.css?v=20261117153926">
 </head>
 <body>
 <header>
@@ -28,6 +30,7 @@
     </nav>
     <input id="q" type="search" placeholder="Find M2B, I7b, S7b, M10A, acyliminium &hellip;" aria-label="Search">
     <label class="showall" title="By default the intermediates that DFT showed do not hold as drawn, the steps that make or use them, and the mechanisms and routes through them are hidden. Show all shows them, crossed out in red."><input type="checkbox" id="showall"> Show all</label>
+    <div id="auth" class="auth" aria-live="polite"></div>
   </div>
 </header>
 <main>
@@ -64,14 +67,16 @@
   <section id="tab-about" class="tab"><div class="about" id="about"></div></section>
 </main>
 <div id="windows"></div>
-<script src="assets/3Dmol-min.js?v=20261117142755"></script>
-<script src="assets/boot.js?v=20261117142755"></script>
-<script src="data/meta.js?v=20261117142755"></script>
-<script src="data/xyz_O.js?v=20261117142755"></script>
-<script src="data/xyz_S.js?v=20261117142755"></script>
-<script src="data/network_O.js?v=20261117142755"></script>
-<script src="data/network_S.js?v=20261117142755"></script>
-<script src="data/energy.js?v=20261117142755"></script>
-<script src="assets/app.js?v=20261117142755"></script>
+<script src="assets/3Dmol-min.js?v=20261117153926"></script>
+<script src="assets/boot.js?v=20261117153926"></script>
+<script src="data/meta.js?v=20261117153926"></script>
+<script src="data/xyz_O.js?v=20261117153926"></script>
+<script src="data/xyz_S.js?v=20261117153926"></script>
+<script src="data/network_O.js?v=20261117153926"></script>
+<script src="data/network_S.js?v=20261117153926"></script>
+<script src="data/energy.js?v=20261117153926"></script>
+<script src="assets/config.js?v=20261117153926"></script>
+<script src="assets/review.js?v=20261117153926"></script>
+<script src="assets/app.js?v=20261117153926"></script>
 </body>
 </html>

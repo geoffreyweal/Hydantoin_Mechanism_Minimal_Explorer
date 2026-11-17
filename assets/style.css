@@ -211,3 +211,28 @@ th .sarr { font-size: 0.7em; margin-left: 3px; }
 .rvtodo { margin-top: 6px; line-height: 1.6; }
 .rvtodo a { margin-right: 2px; }
 .rvtodo.rvwait { color: var(--muted, #555); }
+/* signing in with GitHub to save the Step 2 review (review.js): the header's box; who ticked a start, and the changes
+   not saved to the repository yet */
+.auth { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; justify-content: flex-end; font-size: 12.5px; margin-left: auto; }
+.auth .who { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+.auth .ini { display: inline-flex; width: 22px; height: 22px; border-radius: 50%; align-items: center; justify-content: center;
+             background: var(--accent-soft); color: var(--accent); font-style: normal; font-size: 12px; }
+.auth .role { padding: 0 7px; border-radius: 9px; border: 1px solid var(--line); color: var(--muted); }
+.auth .save { color: var(--muted); max-width: 340px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.auth .save.s-saving { color: var(--accent); }
+.auth .save.s-saved { color: var(--ok); }
+.auth .save.s-error, .auth .annstate.off, .auth .autherr { color: var(--bad); }
+.auth .annstate { color: var(--muted); }
+.auth .autherr { max-width: 420px; }
+.auth .signnote { color: var(--muted); font-style: italic; }
+.auth .remember { display: inline-flex; gap: 4px; align-items: center; color: var(--muted); white-space: nowrap; cursor: pointer; }
+.auth .btn { font: inherit; font-size: 12.5px; padding: 3px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel);
+             color: var(--ink); cursor: pointer; }
+.auth .btn:hover { background: var(--hover); }
+.auth .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.auth .btn.primary:hover { filter: brightness(1.08); }
+.auth .btn:disabled { opacity: 0.6; cursor: default; }
+@media (prefers-color-scheme: dark) { .auth .btn.primary { color: #10141b; } }
+.review .rvwho { color: var(--muted); font-size: 12px; white-space: nowrap; }
+td.rv.rvlocal { box-shadow: inset 3px 0 0 var(--accent); }
+.rverr { color: var(--bad); }
