@@ -1644,21 +1644,25 @@
     return s;
   }
   /* the lines to run in the project on the cluster: the NEB starts you ticked, approved with your notes */
+  /* (a ticked SCAN start runs as a SCAN once the project gives the step 'step2: scan' (mechflow; the generator writes it
+     from the ticks); a ticked TS-guess path once make_neb.py has built the step's NEB ends from the drawing) */
   function reviewCommands(ch) {
-    var ids = reviewKeys(ch), plain = [], byNote = {}, scan = [], tsp = [];
+    var ids = reviewKeys(ch), steps = M().steps, plain = [], byNote = {}, scan = [], scanTodo = [], tsp = [], tspTodo = [];
     var q = function (t) { return "'" + String(t).replace(/'/g, "'\\''") + "'"; };
     ids.forEach(function (sid) {
-      var r = rv(ch, sid);
+      var r = rv(ch, sid), s = steps[sid] || {};
       if (r.neb) { if (r.note) (byNote[r.note] = byNote[r.note] || []).push(sid); else plain.push(sid); }
-      if (r.scan) scan.push(sid);
-      if (r.tsp) tsp.push(sid);
+      else if (r.tsp) (s.nebdrawn ? tsp : tspTodo).push(sid);
+      else if (r.scan) (s.step2 === "scan" ? scan : scanTodo).push(sid);
     });
-    var out = ["# the " + CHN[ch] + " project (Ch_" + ch + "): run these in its folder on the cluster"];
+    var out = ["# the " + CHN[ch] + " project (Ch_" + ch + "): run these in its folder on the cluster (the NEB start, if ticked, wins over the others)"];
     if (plain.length) out.push("mechflow approve " + plain.join(" ") + " --start");
     Object.keys(byNote).forEach(function (n) { out.push("mechflow approve " + byNote[n].join(" ") + " --start --note " + q(n)); });
-    out.push(plain.length || Object.keys(byNote).length ? "mechflow next && mechflow submit" : "# (no NEB start ticked yet)");
-    if (scan.length) out.push("# SCAN starts you are happy with: " + scan.join(" ") + "  (mechflow runs SCANs only when neb.enabled is false, for the whole project)");
-    if (tsp.length) out.push("# NEB from the TS-guess path, to be built on the Mac (send to Claude: neb_from_drawing.json): " + tsp.join(" "));
+    if (tsp.length) out.push("mechflow approve " + tsp.join(" ") + " --start --note 'NEB from the TS-guess path'");
+    if (scan.length) out.push("mechflow approve " + scan.join(" ") + " --start --note 'SCAN start'    # SCAN: step2: scan in project.yaml");
+    out.push(plain.length || Object.keys(byNote).length || tsp.length || scan.length ? "mechflow next && mechflow submit" : "# (nothing ticked yet)");
+    if (tspTodo.length) out.push("# NEB from the TS-guess path, to be built on the Mac (ask Claude: neb_from_drawing.json): " + tspTodo.join(" "));
+    if (scanTodo.length) out.push("# SCAN start ticked, but the project still runs these steps' NEB (ask Claude: step2: scan in project.yaml): " + scanTodo.join(" "));
     return out.join("\n");
   }
   function reviewPanel() {
