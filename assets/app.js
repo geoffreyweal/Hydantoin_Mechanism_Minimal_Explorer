@@ -1548,7 +1548,13 @@
         "' title='" + esc((c[1] ? c[1] + ". " : "") + "Click to sort") + "'>" + c[0] + "<span class='sarr'>" + (on ? (o[1] > 0 ? "&#9650;" : "&#9660;") : "") + "</span></th>";
     }).join("") + "</tr></thead>";
   }
-  function happy(r) { return !!(r && (r.neb || r.scan)); }
+  /* a step you ticked in its window: its NEB start, its SCAN start, or its TS-guess path for the NEB (Geoff, 2026-11-17:
+     "if I tick 3D: TS guess and path, then tick the mechanistic step in network and steps") */
+  function happy(r) { return !!(r && (r.neb || r.scan || r.tsp)); }
+  function happyWhat(r) {
+    return [r.neb ? "its NEB start" : "", r.scan ? "its SCAN start" : "", r.tsp ? "its TS-guess path for the NEB" : ""]
+      .filter(Boolean).join(", ");
+  }
   function tables() {
     var q = query(), sp = M().species, rows = [];
     Object.keys(sp).forEach(function (s) {
@@ -1571,7 +1577,7 @@
       rows.push({ key: [s, chText(st[s].name).toLowerCase(), st[s].reaction, used,
                         st[s].neb === true ? (st[s].neb_flags ? 1 : 0) : 2, happy(r0) ? 0 : (r0.tsp ? 1 : (r0.note ? 2 : ""))], html:
       "<tr data-t='" + esc(s) + "'><td class='id' style='color:" + esc(st[s].colour) + "'>" + esc(s) +
-        (happy(r0) ? " <span class='rvtick' title='you are happy with its " + (r0.neb && r0.scan ? "NEB and SCAN starts" : r0.neb ? "NEB start" : "SCAN start") + "'>&#10003;</span>" : "") +
+        (happy(r0) ? " <span class='rvtick' title='you ticked " + esc(happyWhat(r0)) + "'>&#10003;</span>" : "") +
         "</td><td>" + esc(chText(st[s].name)) +
         (st[s].fails && st[s].fails.length ? " <span class='xfail'>&#10007; cannot happen as drawn: " + esc(st[s].fails.join(", ")) + " does not hold (DFT)</span>" : "") +
         "</td><td>" + esc(st[s].reaction) +
