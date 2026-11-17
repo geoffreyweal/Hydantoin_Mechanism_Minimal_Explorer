@@ -34,7 +34,7 @@
   function setRv(ch, sid, k, v) {
     var key = ch + "|" + sid, r = REVIEW[key] || {};
     r[k] = v; r.t = new Date().toISOString();
-    if (!r.neb && !r.scan && !r.note) delete REVIEW[key]; else REVIEW[key] = r;
+    if (!r.neb && !r.scan && !r.tsp && !r.note) delete REVIEW[key]; else REVIEW[key] = r;
     saveReview();
     tables();
   }
@@ -298,6 +298,11 @@
       load("path", ch, sid).then(function (P) {
         pv = playPath($(".pane[data-p=p]", body), P, typeof P.ts === "number" ? P.ts : 0,
                       "xyz/ts_guesses/Ch_" + ch + "/" + encodeURIComponent(sid) + "_path.xyz");
+        /* Geoff, 2026-11-17: "is there an option to select the TS guess and path": a tick asks for the step's NEB to start
+           from this path (make_neb.py neb_from_drawing.json: the ends from the drawing, and NEB_TS_XYZFILE) */
+        $(".v3d", $(".pane[data-p=p]", body)).insertAdjacentHTML("beforebegin", st.nebdrawn ?
+          "<div class='review tspdone'>This step's NEB already starts from the drawing" + (st.nebts ? " and through this TS guess" : "") +
+          " (<i>3D: NEB start</i>).</div>" : reviewBar("tsp"));
       }).catch(function () { $(".pane[data-p=p]", body).innerHTML = "<div class='info'>No path for this step.</div>"; });
     }
     /* a path (all images of an xyz file) in a pane: play, slider, key atoms, the bonds that change dashed;
@@ -419,7 +424,8 @@
     function reviewBar(kind) {
       var r = rv(ch, sid);
       return "<div class='review' data-ch='" + esc(ch) + "' data-sid='" + esc(sid) + "'><label><input type='checkbox' data-ok='" + kind + "'" +
-        (r[kind] ? " checked" : "") + "> I am happy with this " + (kind === "neb" ? "NEB start" : "SCAN start") + "</label>" +
+        (r[kind] ? " checked" : "") + "> " + (kind === "tsp" ? "Start this step's NEB from this TS-guess path (ends from the drawing, through its TS guess)" :
+        "I am happy with this " + (kind === "neb" ? "NEB start" : "SCAN start")) + "</label>" +
         "<input type='text' class='rnote' maxlength='300' aria-label='your note on this step' placeholder='your note on " + esc(sid) +
         " (kept in this browser; Steps tab: download, mechflow approve lines)' value='" + esc(r.note || "") + "'></div>";
     }
@@ -438,8 +444,11 @@
         $(".v3d", pane).insertAdjacentHTML("beforebegin", reviewBar("neb"));
         var flags = (P.flags || []).map(function (f) { return "<li class='nebflag'>" + esc(f) + "</li>"; }).join("");
         var list = function (a) { return (a || []).map(function (x) { return "<li>" + esc(x) + "</li>"; }).join(""); };
-        $(".nebinfo", pane).innerHTML = "<p>The starting path of an NEB-CI" + (rev ? " (played backwards)" : "") + ": the two ends from the " +
-          "DFT-optimised structures, " + (P.images - 2) + " images between them by ASE's IDPP interpolation. Not a DFT result: " +
+        $(".nebinfo", pane).innerHTML = "<p>The starting path of an NEB-CI" + (rev ? " (played backwards)" : "") + ": " +
+          (st.nebdrawn ? "built from the drawing like the TS-guess path (the start as drawn, the far end with the step's bonds changed, " +
+           "force field; both ends optimised first on the cluster)" + (st.nebts ? ", and the NEB starts through the TS guess of the TS-guess path " +
+           "(NEB_TS_XYZFILE)" : "") + ", " : "the two ends from the DFT-optimised structures, ") +
+          (P.images - 2) + " images between them by ASE's IDPP interpolation. Not a DFT result: " +
           "<code>ase gui " + esc(sid) + "_neb.xyz</code>. On the cluster an end of more than one molecule is optimised before the NEB runs.</p>" +
           (flags ? "<p><b>Look at:</b></p><ul>" + flags + "</ul>" : "<p>No atoms of different molecules come too close along the path.</p>") +
           "<p><b>Left end</b> (" + esc(P.reaction_left) + "):</p><ul>" + list(P.left) + "</ul><p><b>Right end</b> (" + esc(P.reaction_right) + "):</p><ul>" + list(P.right) + "</ul>";
@@ -1560,17 +1569,19 @@
       if ((q && t.indexOf(q) < 0) || (hideBad() && st[s].fails && st[s].fails.length)) return;
       var r0 = rv(S.ch, s), used = st[s].used_by.filter(function (m) { return baseMech(m); }).join(", ");
       rows.push({ key: [s, chText(st[s].name).toLowerCase(), st[s].reaction, used,
-                        st[s].neb === true ? (st[s].neb_flags ? 1 : 0) : 2, happy(r0) ? 0 : (r0.note ? 1 : "")], html:
+                        st[s].neb === true ? (st[s].neb_flags ? 1 : 0) : 2, happy(r0) ? 0 : (r0.tsp ? 1 : (r0.note ? 2 : ""))], html:
       "<tr data-t='" + esc(s) + "'><td class='id' style='color:" + esc(st[s].colour) + "'>" + esc(s) +
         (happy(r0) ? " <span class='rvtick' title='you are happy with its " + (r0.neb && r0.scan ? "NEB and SCAN starts" : r0.neb ? "NEB start" : "SCAN start") + "'>&#10003;</span>" : "") +
         "</td><td>" + esc(chText(st[s].name)) +
         (st[s].fails && st[s].fails.length ? " <span class='xfail'>&#10007; cannot happen as drawn: " + esc(st[s].fails.join(", ")) + " does not hold (DFT)</span>" : "") +
         "</td><td>" + esc(st[s].reaction) +
         "</td><td>" + esc(used) + "</td><td class='neb'>" +
-        (st[s].neb === true ? (st[s].neb_flags ? "<span class='nebflag' title='" + esc(st[s].neb_flags) + "'>&#9888; look</span>" : "<span class='nebok'>&#10003;</span>")
+        (st[s].neb === true ? (st[s].neb_flags ? "<span class='nebflag' title='" + esc(st[s].neb_flags) + "'>&#9888; look</span>" :
+          "<span class='nebok'" + (st[s].nebdrawn ? " title='from the drawing" + (st[s].nebts ? ", through the TS guess" : "") + "'>&#10003;&nbsp;drawn" : ">&#10003;") + "</span>")
          : "<span class='nebno' title='" + esc(typeof st[s].neb === "string" ? st[s].neb : "") + "'>&ndash;</span>") + "</td><td class='rv'>" +
         (function (r) {
           return (r.neb ? "<span class='rvok'>NEB&nbsp;&#10003;</span> " : "") + (r.scan ? "<span class='rvok'>SCAN&nbsp;&#10003;</span> " : "") +
+            (r.tsp ? "<span class='rvtsp' title='start its NEB from the TS-guess path (send the list to Claude)'>TS&nbsp;path</span> " : "") +
             (r.note ? "<span class='rvnote' title='" + esc(r.note) + "'>&#9998;&nbsp;" + esc(r.note.length > 40 ? r.note.slice(0, 39) + "\u2026" : r.note) + "</span>" : "");
         })(r0) + "</td></tr>" });
     });
@@ -1601,28 +1612,31 @@
   }
   /* the lines to run in the project on the cluster: the NEB starts you ticked, approved with your notes */
   function reviewCommands(ch) {
-    var ids = reviewKeys(ch), plain = [], byNote = {}, scan = [];
+    var ids = reviewKeys(ch), plain = [], byNote = {}, scan = [], tsp = [];
     var q = function (t) { return "'" + String(t).replace(/'/g, "'\\''") + "'"; };
     ids.forEach(function (sid) {
       var r = rv(ch, sid);
       if (r.neb) { if (r.note) (byNote[r.note] = byNote[r.note] || []).push(sid); else plain.push(sid); }
       if (r.scan) scan.push(sid);
+      if (r.tsp) tsp.push(sid);
     });
     var out = ["# the " + CHN[ch] + " project (Ch_" + ch + "): run these in its folder on the cluster"];
     if (plain.length) out.push("mechflow approve " + plain.join(" ") + " --start");
     Object.keys(byNote).forEach(function (n) { out.push("mechflow approve " + byNote[n].join(" ") + " --start --note " + q(n)); });
     out.push(plain.length || Object.keys(byNote).length ? "mechflow next && mechflow submit" : "# (no NEB start ticked yet)");
     if (scan.length) out.push("# SCAN starts you are happy with: " + scan.join(" ") + "  (mechflow runs SCANs only when neb.enabled is false, for the whole project)");
+    if (tsp.length) out.push("# NEB from the TS-guess path, to be built on the Mac (send to Claude: neb_from_drawing.json): " + tsp.join(" "));
     return out.join("\n");
   }
   function reviewPanel() {
     var el = $("#review");
     if (!el) return;
-    var ids = reviewKeys(S.ch), nN = 0, nS = 0, nT = 0;
-    ids.forEach(function (sid) { var r = rv(S.ch, sid); if (r.neb) nN++; if (r.scan) nS++; if (r.note) nT++; });
+    var ids = reviewKeys(S.ch), nN = 0, nS = 0, nT = 0, nP = 0;
+    ids.forEach(function (sid) { var r = rv(S.ch, sid); if (r.neb) nN++; if (r.scan) nS++; if (r.note) nT++; if (r.tsp) nP++; });
     var open = el.dataset.open === "1";
     el.innerHTML = "<b>Your Step 2 review</b> (" + esc(CHN[S.ch]) + "): " + nN + " NEB start" + (nN === 1 ? "" : "s") + " and " + nS + " SCAN start" +
-      (nS === 1 ? "" : "s") + " ticked, " + nT + " note" + (nT === 1 ? "" : "s") + ". Tick a start in the step window (<i>3D: NEB start</i>, <i>3D: SCAN</i>). " +
+      (nS === 1 ? "" : "s") + " ticked, " + nT + " note" + (nT === 1 ? "" : "s") + "; " + nP + " step" + (nP === 1 ? "" : "s") +
+      " to start from the TS-guess path. Tick a start in the step window (<i>3D: NEB start</i>, <i>3D: SCAN</i>, the TS-guess path). " +
       "<button data-r='cmd'>" + (open ? "Hide" : "Show") + " the mechflow lines</button><button data-r='dl'>Download</button>" +
       "<button data-r='imp'>Import</button><button data-r='clear'>Clear (" + esc(CHN[S.ch]) + ")</button>" +
       "<input type='file' accept='.json,application/json' hidden>" +
@@ -1667,7 +1681,7 @@
             if (!/^[OS]\|S\d+[ab]?$/.test(k) || !r || typeof r !== "object") return;
             var old = REVIEW[k];
             if (!old || String(r.t || "") > String(old.t || "")) {
-              REVIEW[k] = { neb: !!r.neb, scan: !!r.scan, note: typeof r.note === "string" ? r.note.slice(0, 300) : "", t: String(r.t || "") }; n++;
+              REVIEW[k] = { neb: !!r.neb, scan: !!r.scan, tsp: !!r.tsp, note: typeof r.note === "string" ? r.note.slice(0, 300) : "", t: String(r.t || "") }; n++;
             }
           });
           saveReview(); tables();

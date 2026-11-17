@@ -206,3 +206,5 @@ th.sorted { color: var(--accent, #1d4ed8); }
 th .sarr { font-size: 0.7em; margin-left: 3px; }
 .rvtick { color: var(--ok, #1b7f3b); font-weight: 700; }
 .scaninfo .scanone { font-weight: 500; }
+.rvtsp { color: var(--accent, #1d4ed8); font-weight: 600; }
+.review.tspdone { color: var(--muted, #555); font-style: italic; }
