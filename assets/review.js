@@ -9,11 +9,11 @@
    path), note, by (GitHub login), t (when). The newest change of an entry wins. An entry with nothing ticked and no note
    is a step whose ticks were taken off; it is kept, so that the change reaches the other browsers.
 
-   Anyone can read the file (raw.githubusercontent.com). To change it, sign in with GitHub: the main study's GitHub App,
-   web flow, with a random state and a PKCE challenge; the one-time code is swapped for a user token (about 8 hours) by
-   a small Cloudflare Worker (config.js tokenUrl), because that needs the app's client secret. The token is kept in this
-   browser (sessionStorage, or localStorage with "remember"), and is sent only to api.github.com. Only people with push
-   access to the repository can save.
+   Anyone can read the file (raw.githubusercontent.com). To change it, sign in with GitHub: the site's own GitHub App
+   ("Hydantoin Explorer Minimal sign-in"), web flow, with a random state and a PKCE challenge; the one-time code is
+   swapped for a user token (about 8 hours) by a small Cloudflare Worker (config.js tokenUrl; ../signin_worker/), because
+   that needs the app's client secret. The token is kept in this browser (sessionStorage, or localStorage with
+   "remember"), and is sent only to api.github.com. Only people with push access to the repository can save.
 
    Every change is kept in this browser at once (localStorage hpm.review: the changes the repository does not have yet)
    and saved about 1.5 s after the last one, as one commit (Contents API). Changes made while signed out, or after the
