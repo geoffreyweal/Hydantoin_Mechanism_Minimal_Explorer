@@ -1,5 +1,5 @@
 97
-S31b left end 0/0 (NEB start from DFT ends; ASE IDPP)
+S31b left end 0/0 (NEB start from the drawing, as the TS guess path; ASE IDPP)
 C      1.382392     0.475503    -1.651602
 C      1.039920    -0.880052    -2.323326
 O      1.489726     0.544414    -0.422078
