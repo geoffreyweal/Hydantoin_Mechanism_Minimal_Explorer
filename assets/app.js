@@ -703,6 +703,7 @@
           var c = e.target.closest(".spt"); if (c) pane.ppGo(+c.dataset.k);
         });
         var mx = typeof D.max === "number" ? D.max : null, stopped = D.planned && n < D.planned;
+        $("button[data-a=ts]", pane).hidden = mx === null;           // no maximum: nothing for the button to go to
         var jumps = D.jumps || [], atMax = mx === null ? null : jumps.filter(function (jp) { return jp.n === mx || jp.n + 1 === mx; })[0];
         var jumpText = function (jp) {
           return "between points " + jp.n + " and " + (jp.n + 1) + " (d " + D.d[jp.n].toFixed(3) + " → " + D.d[jp.n + 1].toFixed(3) + " Å): ΔE " + kj(jp.dE) + " kJ/mol; " +
