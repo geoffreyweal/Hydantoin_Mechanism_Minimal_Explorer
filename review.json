@@ -1,5 +1,5 @@
 {
- "about": "The Step 2 review of the Hydantoin Proposed Mechanisms website, written by the site when a signed-in collaborator ticks a start: per chalcogen and step (\"O|S10\"), neb / scan = the NEB / SCAN start is fine, tsp = start the NEB from the TS-guess path, note, by = GitHub login, t = when. The newest change of an entry wins; an entry with nothing ticked and no note is one whose ticks were taken off.",
+ "about": "The Step 2 review of the Hydantoin Proposed Mechanisms website, written by the site when a signed-in collaborator ticks a start: per chalcogen and step (\"O|S10\"), neb / scan = the NEB / SCAN start is fine, tsp = start the NEB from the TS-guess path, img = the number of images of the step's NEB, note, by = GitHub login, t = when. The newest change of an entry wins; an entry with nothing ticked and no note is one whose ticks were taken off.",
  "format": "hydantoin-minimal-review",
  "review": {
   "O|S1": {
@@ -272,6 +272,12 @@
    "by": "geoffreyweal",
    "scan": true,
    "t": "2026-11-17T00:05:51.342Z"
+  },
+  "S|S25": {
+   "by": "geoffreyweal",
+   "img": 100,
+   "neb": true,
+   "t": "2026-11-20T07:31:05.430Z"
   }
  },
  "version": 1
