@@ -261,6 +261,7 @@ td.rv.rvlocal { box-shadow: inset 3px 0 0 var(--accent); }
 .scanchart .sax { fill: var(--muted); font-size: 11px; }
 .scanchart .slab { fill: var(--muted); font-size: 12px; }
 .scanchart .smaxl { fill: var(--bad); font-size: 12px; font-weight: 600; }
+.scanchart .sjump { stroke: #e08a00; stroke-width: 1.4; stroke-dasharray: 4 3; }
 /* the TS-guess path tab: the path itself, or the NEB its tick asks for */
 .pview { margin: 0 0 6px; }
 .review .nebimgnone { color: var(--muted, #777); font-size: 0.85em; }

@@ -203,6 +203,11 @@
     });
     s.push("<line class='szero' x1='" + L + "' x2='" + (W - R) + "' y1='" + f1(Y(0)) + "' y2='" + f1(Y(0)) + "'/>");
     s.push("<rect class='sframe' x='" + L + "' y='" + T + "' width='" + (W - L - R) + "' height='" + (H - T - B) + "'/>");
+    (D.jumps || []).forEach(function (jp) {         // a sudden change of structure between points n and n + 1
+      var xm = (X(xs[jp.n]) + X(xs[jp.n + 1])) / 2;
+      s.push("<line class='sjump' x1='" + f1(xm) + "' x2='" + f1(xm) + "' y1='" + T + "' y2='" + (H - B) + "'><title>a sudden change of structure between points " +
+        jp.n + " and " + (jp.n + 1) + ": ΔE " + (jp.dE >= 0 ? "+" : "") + jp.dE.toFixed(1) + " kJ/mol</title></line>");
+    });
     s.push("<polyline class='sline' points='" + xs.map(function (x, k) { return f1(X(x)) + "," + f1(Y(ys[k])); }).join(" ") + "'/>");
     for (var k = 0; k < n; k++) {
       s.push("<circle class='spt" + (k === D.max ? " smax" : "") + "' data-k='" + k + "' cx='" + f1(X(xs[k])) + "' cy='" + f1(Y(ys[k])) + "' r='" + (k === D.max ? 6 : 3.4) +
@@ -698,6 +703,12 @@
           var c = e.target.closest(".spt"); if (c) pane.ppGo(+c.dataset.k);
         });
         var mx = typeof D.max === "number" ? D.max : null, stopped = D.planned && n < D.planned;
+        var jumps = D.jumps || [], atMax = mx === null ? null : jumps.filter(function (jp) { return jp.n === mx || jp.n + 1 === mx; })[0];
+        var jumpText = function (jp) {
+          return "between points " + jp.n + " and " + (jp.n + 1) + " (d " + D.d[jp.n].toFixed(3) + " → " + D.d[jp.n + 1].toFixed(3) + " Å): ΔE " + kj(jp.dE) + " kJ/mol; " +
+            (jp.made.length || jp.broken.length ? (jp.made.length ? "bond made: " + jp.made.join(", ") + "; " : "") + (jp.broken.length ? "bond broken: " + jp.broken.join(", ") + "; " : "") :
+              "no bond made or broken; ") + "moved: " + jp.moved.map(function (m_) { return m_[0] + " " + m_[1].toFixed(2) + " Å"; }).join(", ");
+        };
         var st_ = D.status || {}, rm = D.start_rmsd;
         $(".scanresinfo", pane).innerHTML =
           "<p><b>The SCAN that ran on the cluster</b> (ωB97X-D3BJ/def2-TZVP, CPCM chloroform" + (D.source ? "; copied from <code>" + esc(D.source) + "</code>" : "") + "): " +
@@ -708,8 +719,14 @@
           (mx !== null ? "<p><b>Maximum</b> (the TS guess mechflow takes: the highest point with lower points on both sides): point " + mx + " (image " + D.image[mx] +
             "), d = " + D.d[mx].toFixed(3) + " Å, ΔE = " + kj(D.e[mx]) + " kJ/mol." +
             (D.e[last] > D.e[mx] ? " <span class='scanbad'>The SCAN ends higher than this maximum (ΔE = " + kj(D.e[last]) + " kJ/mol at d = " + D.d[last].toFixed(3) +
-              " Å): the energy goes on rising after it.</span>" : " After it the energy falls to ΔE = " + kj(D.e[last]) + " kJ/mol at d = " + D.d[last].toFixed(3) + " Å.") + "</p>" :
+              " Å): the energy goes on rising after it.</span>" : " After it the energy falls to ΔE = " + kj(D.e[last]) + " kJ/mol at d = " + D.d[last].toFixed(3) + " Å.") +
+            (atMax ? " <span class='scanbad scanjump'>The maximum is at a sudden change of structure (" + jumpText(atMax) + ")" +
+              (!atMax.made.length && !atMax.broken.length ? ": the structure changed its conformation there, so the maximum is where it switched, not a barrier along the scanned distance." : ".") +
+              "</span>" : "") + "</p>" :
             "<p class='scanbad'><b>No maximum</b> with lower points on both sides, so mechflow has no TS guess from this SCAN.</p>") +
+          (jumps.length ? "<p><b>Sudden changes of structure</b> (an atom moving more than 0.5 Å between neighbouring points after fitting them onto each other, " +
+            "or a bond made or broken; usually the atoms move 0.02–0.1 Å; dashed lines on the curve):</p><ul>" +
+            jumps.map(function (jp) { return "<li>" + esc(jumpText(jp)) + "</li>"; }).join("") + "</ul>" : "") +
           (st_.detail ? "<p><b>mechflow</b> (in that download): " + esc(st_.stage || "") + " – " + esc(st_.detail) + "</p>" : "") +
           (typeof rm === "number" ? "<p>It started from <code>start_opt.xyz</code>: RMSD " + rm.toFixed(2) + " Å from the SCAN start shown in <i>3D: SCAN</i> (today's structures)" +
             (rm < 0.05 ? ", the same structure." : rm < 0.3 ? ", nearly the same." : ": a different structure (the SCAN start has changed since this SCAN ran).") + "</p>" : "") +
