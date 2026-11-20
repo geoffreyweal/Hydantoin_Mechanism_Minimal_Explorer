@@ -256,7 +256,10 @@
     var p = pick(k), e = {}, m = clone(localMap());
     if (p) FLAGS.concat(["note"]).forEach(function (x) { if (p.e[x]) e[x] = p.e[x]; });
     if (f === "note") { var n = text(v, NOTE_MAX); if (n) e.note = n; else delete e.note; }
-    else if (v) e[f] = true;
+    else if (v) {                    // one Step 2 choice per step: ticking one takes the other two off
+      FLAGS.forEach(function (x) { delete e[x]; });
+      e[f] = true;
+    }
     else delete e[f];
     e.t = later(p ? p.e.t : "");
     keep(m, k, e);

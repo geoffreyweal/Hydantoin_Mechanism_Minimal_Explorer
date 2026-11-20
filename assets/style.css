@@ -204,6 +204,7 @@ th.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
 th.sortable:hover, th.sortable:focus { text-decoration: underline; }
 th.sorted { color: var(--accent, #1d4ed8); }
 th .sarr { font-size: 0.7em; margin-left: 3px; }
+.review .rvone { color: var(--muted, #777); font-size: 0.85em; }
 .rvtick { color: var(--ok, #1b7f3b); font-weight: 700; }
 .scaninfo .scanone { font-weight: 500; }
 .rvtsp { color: var(--accent, #1d4ed8); font-weight: 600; }

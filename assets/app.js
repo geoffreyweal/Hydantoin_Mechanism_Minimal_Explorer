@@ -422,7 +422,8 @@
       var r = rv(ch, sid);
       return "<div class='review' data-ch='" + esc(ch) + "' data-sid='" + esc(sid) + "'><label><input type='checkbox' data-ok='" + kind + "'" +
         (r[kind] ? " checked" : "") + "> " + (kind === "tsp" ? "Start this step's NEB from this TS-guess path (ends from the drawing, through its TS guess)" :
-        "I am happy with this " + (kind === "neb" ? "NEB start" : "SCAN start")) + "</label>" +
+        "I am happy with this " + (kind === "neb" ? "NEB start" : "SCAN start")) +
+        " <span class='rvone'>(one choice per step: NEB start, SCAN or TS-guess path; ticking one takes off the others)</span></label>" +
         "<input type='text' class='rnote' maxlength='300' aria-label='your note on this step' placeholder='your note on " + esc(sid) +
         (Rv.shared ? " (saved with the ticks; Steps tab: mechflow approve lines)" : " (kept in this browser; Steps tab: download, mechflow approve lines)") +
         "' value='" + esc(r.note || "") + "'><span class='rvwho'>" + esc(rvWho(r)) + "</span></div>";
@@ -1012,14 +1013,15 @@
     $$("tspan.rvtick", net.el).forEach(function (t) { t.parentNode.removeChild(t); });
     $$("g.edge", net.el).forEach(function (g) {
       var m = /^st\|([^|]+)\|/.exec(g.getAttribute("id") || "");
-      if (!m || !happy(rv(S.ch, m[1]))) return;
+      var r = m && rv(S.ch, m[1]);
+      if (!m || !happy(r)) return;
       var lab = Array.prototype.filter.call(g.children, function (c) {
         return c.tagName.toLowerCase() === "text" && c.textContent.indexOf(m[1]) >= 0;
       })[0];
       if (!lab) return;
       var tick = document.createElementNS(ns, "tspan");
       tick.setAttribute("class", "rvtick"); tick.setAttribute("fill", "#1b7f3b");
-      tick.textContent = " \u2713";
+      tick.textContent = " \u2713 " + tickLabel(r);   // what was chosen: e.g. "S10 ✓ NEB (TS path)"
       lab.appendChild(tick);
     });
   }
@@ -1560,6 +1562,10 @@
   }
   /* a step you ticked in its window: its NEB start, its SCAN start, or its TS-guess path for the NEB (Geoff, 2026-11-17:
      "if I tick 3D: TS guess and path, then tick the mechanistic step in network and steps") */
+  function tickLabel(r) {             // the network's short label of what was ticked for a step's Step 2
+    return [r.tsp ? "NEB (TS path)" : "", r.neb ? "NEB (DFT ends)" : "", r.scan ? "SCAN" : ""]
+      .filter(Boolean).join(" + ");
+  }
   function happy(r) { return !!(r && (r.neb || r.scan || r.tsp)); }
   function happyWhat(r) {
     return [r.neb ? "its NEB start" : "", r.scan ? "its SCAN start" : "", r.tsp ? "its TS-guess path for the NEB" : ""]
