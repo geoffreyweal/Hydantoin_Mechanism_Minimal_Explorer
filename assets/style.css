@@ -246,3 +246,21 @@ td.rv.rvlocal { box-shadow: inset 3px 0 0 var(--accent); }
 #tab-steps.on { flex-direction: column; }
 #tab-steps .reviewbar { flex: none; margin: 8px 18px 0; max-height: 40vh; overflow: auto; }
 #tab-steps .tablewrap { min-height: 0; }
+
+/* the SCAN result tab: the energy curve of a SCAN that ran on the cluster (scanChart in app.js) */
+.scanchart { margin: 0 0 6px; }
+.scanchart svg { display: block; width: 100%; height: auto; max-height: 270px; }
+.scanchart .sgrid { stroke: var(--line); stroke-width: 1; }
+.scanchart .szero { stroke: var(--muted); stroke-dasharray: 3 3; stroke-width: 1; }
+.scanchart .sframe { fill: none; stroke: var(--muted); stroke-width: 1; }
+.scanchart .sline { fill: none; stroke: var(--accent); stroke-width: 1.6; }
+.scanchart .spt { fill: var(--accent); cursor: pointer; }
+.scanchart .spt:hover { stroke: var(--ink); stroke-width: 1.5; }
+.scanchart .spt.smax { fill: var(--bad); }
+.scanchart .scur { fill: none; stroke: var(--ink); stroke-width: 2; pointer-events: none; }
+.scanchart .sax { fill: var(--muted); font-size: 11px; }
+.scanchart .slab { fill: var(--muted); font-size: 12px; }
+.scanchart .smaxl { fill: var(--bad); font-size: 12px; font-weight: 600; }
+/* the TS-guess path tab: the path itself, or the NEB its tick asks for */
+.pview { margin: 0 0 6px; }
+.review .nebimgnone { color: var(--muted, #777); font-size: 0.85em; }

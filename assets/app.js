@@ -166,11 +166,11 @@
     el.v3dViewer = v;                       /* (for the browser tests) */
     return v;
   }
-  function nebnXYZ(D, sid) {
+  function nebnXYZ(D, sid, comment) {
     var a = D.atoms, na = a.length, q = D.q, nf = q.length / (3 * na), cur = [], out = [];
     if (!na || nf !== Math.floor(nf) || nf < 2) throw new Error("not a path");
     for (var f = 0; f < nf; f++) {
-      out.push(String(na), sid + " image " + f + "/" + (nf - 1) + " (" + D.n + " images between the ends; NEB start, ASE IDPP; coordinates to 0.001 A)");
+      out.push(String(na), comment ? comment(f) : sid + " image " + f + "/" + (nf - 1) + " (" + D.n + " images between the ends; NEB start, ASE IDPP; coordinates to 0.001 A)");
       for (var i = 0; i < na; i++) {
         var j = 3 * (f * na + i), b = 3 * i;
         for (var x = 0; x < 3; x++) cur[b + x] = (f ? cur[b + x] : 0) + q[j + x];
@@ -178,6 +178,46 @@
       }
     }
     return out.join("\n") + "\n";
+  }
+  function niceTicks(lo, hi, want) {
+    var span = hi - lo || 1, step = Math.pow(10, Math.floor(Math.log10(span / want))), err = span / want / step;
+    step *= err >= 7.5 ? 10 : err >= 3.5 ? 5 : err >= 1.5 ? 2 : 1;
+    var out = [];
+    for (var t = Math.ceil(lo / step) * step; t <= hi + step * 1e-9; t += step) out.push(Math.round(t / step) * step);
+    return { ticks: out, step: step };
+  }
+  function scanChart(D, nm) {
+    var W = 680, H = 250, L = 64, R = 18, T = 16, B = 46, xs = D.d, ys = D.e, n = xs.length;
+    var x0 = Math.min.apply(null, xs), x1 = Math.max.apply(null, xs), y0 = Math.min(0, Math.min.apply(null, ys)), y1 = Math.max(0, Math.max.apply(null, ys));
+    var px = (x1 - x0) * 0.03 || 0.1, py = (y1 - y0) * 0.08 || 1;
+    x0 -= px; x1 += px; y0 -= py; y1 += py;
+    var X = function (v) { return L + (v - x0) / (x1 - x0) * (W - L - R); }, Y = function (v) { return H - B - (v - y0) / (y1 - y0) * (H - T - B); };
+    var f1 = function (v) { return v.toFixed(1); }, s = [];
+    s.push("<svg viewBox='0 0 " + W + " " + H + "' role='img' aria-label='SCAN energy curve'>");
+    var xt = niceTicks(x0, x1, 6), yt = niceTicks(y0, y1, 5), xd = xt.step < 0.1 ? 2 : 1, yd = yt.step < 1 ? 1 : 0;
+    yt.ticks.forEach(function (t) {
+      s.push("<line class='sgrid' x1='" + L + "' x2='" + (W - R) + "' y1='" + f1(Y(t)) + "' y2='" + f1(Y(t)) + "'/><text class='sax' x='" + (L - 6) + "' y='" + f1(Y(t) + 4) + "' text-anchor='end'>" + t.toFixed(yd) + "</text>");
+    });
+    xt.ticks.forEach(function (t) {
+      s.push("<line class='sgrid' y1='" + T + "' y2='" + (H - B) + "' x1='" + f1(X(t)) + "' x2='" + f1(X(t)) + "'/><text class='sax' y='" + (H - B + 16) + "' x='" + f1(X(t)) + "' text-anchor='middle'>" + t.toFixed(xd) + "</text>");
+    });
+    s.push("<line class='szero' x1='" + L + "' x2='" + (W - R) + "' y1='" + f1(Y(0)) + "' y2='" + f1(Y(0)) + "'/>");
+    s.push("<rect class='sframe' x='" + L + "' y='" + T + "' width='" + (W - L - R) + "' height='" + (H - T - B) + "'/>");
+    s.push("<polyline class='sline' points='" + xs.map(function (x, k) { return f1(X(x)) + "," + f1(Y(ys[k])); }).join(" ") + "'/>");
+    for (var k = 0; k < n; k++) {
+      s.push("<circle class='spt" + (k === D.max ? " smax" : "") + "' data-k='" + k + "' cx='" + f1(X(xs[k])) + "' cy='" + f1(Y(ys[k])) + "' r='" + (k === D.max ? 6 : 3.4) +
+        "'><title>point " + k + " (image " + D.image[k] + "): d = " + xs[k].toFixed(3) + " Å, ΔE = " + ys[k].toFixed(1) + " kJ/mol" + (k === D.max ? " (maximum)" : "") + "</title></circle>");
+    }
+    if (typeof D.max === "number") {
+      var mx = X(xs[D.max]), my = Y(ys[D.max]), right = mx < W * 0.62;
+      s.push("<text class='smaxl' x='" + f1(mx + (right ? 10 : -10)) + "' y='" + f1(Math.max(T + 12, my - 10)) + "' text-anchor='" + (right ? "start" : "end") + "'>maximum: " +
+        (ys[D.max] >= 0 ? "+" : "") + ys[D.max].toFixed(1) + " kJ/mol at " + xs[D.max].toFixed(3) + " Å</text>");
+    }
+    s.push("<circle class='scur' cx='-99' cy='-99' r='8.5'/>");
+    s.push("<text class='slab' x='" + ((L + W - R) / 2) + "' y='" + (H - 8) + "' text-anchor='middle'>" + esc(nm[0]) + " … " + esc(nm[1]) + " / Å</text>");
+    s.push("<text class='slab' transform='translate(16 " + ((T + H - B) / 2) + ") rotate(-90)' text-anchor='middle'>ΔE / kJ mol⁻¹ (from the first point)</text>");
+    s.push("</svg>");
+    return s.join("");
   }
   function styleAll(v, mode) {
     if (mode === "line") v.setStyle({}, { line: { colorscheme: "Jmol" } });
@@ -236,6 +276,7 @@
     var body = makeWin(sid + (rev ? " (backwards)" : ""), (rev ? "reverse of: " : "") + chText(st.name) + "  (" + CHN[ch] + ")", 900);
     body.innerHTML = "<div class='tabs'><button data-p='d' class='on'>Diagram</button><button data-p='p'>3D: TS guess and path</button>" +
       "<button data-p='n'>3D: NEB start</button><button data-p='s'>3D: SCAN</button>" +
+      (st.scanres ? "<button data-p='r'>SCAN result</button>" : "") +
       (st.dft.length ? "<button data-p='q'>3D: DFT</button>" : "") + "<button data-p='i'>Details</button></div>" +
       "<div class='pane on' data-p='d'><div class='seg evswitch' role='group' aria-label='Step or energy diagram' hidden><button data-ev='0'>Step</button>" +
       "<button data-ev='1'>Energy</button></div> <div class='seg tsswitch' role='group' aria-label='TS picture' hidden><button data-ts='2d'>2D</button>" +
@@ -250,6 +291,9 @@
       "<button data-a='labels'>Key atoms</button><a download>NEB start .xyz (ase gui)</a></div><div class='info note nebinfo'></div></div>" +
       "<div class='pane' data-p='s'><div class='v3d'></div><div class='tools'><span class='fr'></span>" +
       "<a download>SCAN start .xyz (ase gui)</a></div><div class='info note scaninfo'></div></div>" +
+      (st.scanres ? "<div class='pane' data-p='r'><div class='scanchart'></div><div class='v3d'></div><div class='tools'><button data-a='play'>&#9654; Play</button>" +
+        "<input type='range' min='0' max='1' value='0' aria-label='SCAN point'><span class='fr'></span><button data-a='ts'>Maximum</button>" +
+        "<button data-a='labels'>Key atoms</button><a download>SCAN points .xyz (ase gui)</a></div><div class='info note scanresinfo'></div></div>" : "") +
       (st.dft.length ? "<div class='pane' data-p='q'><div class='v3d'></div><div class='tools'><input type='range' min='0' value='0'><span class='fr'></span></div></div>" : "") +
       "<div class='pane' data-p='i'><div class='info'></div></div>";
     var tabs = $(".tabs", body);
@@ -257,7 +301,7 @@
       var p = e.target.dataset.p; if (!p) return;
       $$(".tabs button", body).forEach(function (b) { b.classList.toggle("on", b.dataset.p === p); });
       $$(".pane", body).forEach(function (b) { b.classList.toggle("on", b.dataset.p === p); });
-      if (p === "p") showPath(); if (p === "n") showNEB(); if (p === "s") showSCAN(); if (p === "q") showDFT();
+      if (p === "p") showPath(); if (p === "n") showNEB(); if (p === "s") showSCAN(); if (p === "q") showDFT(); if (p === "r") showScanRes();
     });
     // the TS above the arrow: the 2D sketch (.ts2d) or the 3D TS guess (.ts3d), when the drawing has both
     var dBox = $(".pane[data-p=d] .svgbox", body), sw = $(".pane[data-p=d] .tsswitch", body);
@@ -306,13 +350,74 @@
       if (pv) return;
       if (st.path === false) { pv = true; $(".pane[data-p=p]", body).innerHTML = "<div class='info'>No TS guess or path for this step yet (make_paths.py, then rebuild the website).</div>"; return; }
       load("path", ch, sid).then(function (P) {
-        pv = playPath($(".pane[data-p=p]", body), P, typeof P.ts === "number" ? P.ts : 0,
-                      "xyz/ts_guesses/Ch_" + ch + "/" + encodeURIComponent(sid) + "_path.xyz");
+        var pane = $(".pane[data-p=p]", body), hrefP = "xyz/ts_guesses/Ch_" + ch + "/" + encodeURIComponent(sid) + "_path.xyz";
+        var info0 = $(".info", pane).innerHTML, dl = $("a[download]", pane), T = st.tspimg && st.tspimg.counts ? st.tspimg : null;
+        var view = "path", shown = null, token = 0;
+        pv = true;
+        function dropBlob() { if (dl.ppBlob) { URL.revokeObjectURL(dl.ppBlob); dl.ppBlob = null; } }
+        function setView(v) {
+          view = v;
+          $$(".pview button", pane).forEach(function (b) { var on = b.dataset.v === v; b.classList.toggle("on", on); b.setAttribute("aria-pressed", on ? "true" : "false"); });
+          pane.dataset.view = v;
+        }
+        function showTSPath() {          // the TS-guess path itself (make_paths.py: IDPP between the two sides as drawn)
+          token++; dropBlob(); shown = null; setView("path");
+          playPath(pane, P, typeof P.ts === "number" ? P.ts : 0, hrefP);
+          $(".info", pane).innerHTML = info0;
+          pane.dataset.images = "";
+        }
+        /* the NEB that the tick asks for, with n images between its two ends (make_neb_counts.py --drawn): the start as in
+           this path, the far end with the step's bonds changed (force field), ASE IDPP through this path's TS guess */
+        function showNEBn(n) {
+          setView("neb");
+          if (!imgPreview("tsp", n)) n = st.nimages;
+          if (!imgPreview("tsp", n)) n = T.counts[0];
+          if (n === shown) return;
+          var my = ++token;
+          load("tspn", ch, sid + "_" + n).then(function (D) {
+            if (my !== token) return;
+            var xyz = nebnXYZ(D, sid), file = sid + "_neb_from_TS_path_" + n + "_images.xyz";
+            dropBlob();
+            dl.ppBlob = URL.createObjectURL(new Blob([xyz], { type: "chemical/x-xyz" }));
+            shown = n;
+            playPath(pane, { xyz: xyz, changed: P.changed }, typeof D.ts === "number" ? D.ts : null, dl.ppBlob, { file: file });
+            var list = function (a) { return (a || []).map(function (x) { return "<li>" + esc(x) + "</li>"; }).join(""); };
+            var flags = (D.flags || []).map(function (f) { return "<li class='nebflag'>" + esc(f) + "</li>"; }).join("");
+            $(".info", pane).innerHTML = "<p>The NEB that the tick above asks for, as it would be built now: <span class='nebn'>" + n +
+              "</span> images between its two ends by ASE's IDPP" + (typeof D.ts === "number" ? ", from the start through this path's TS guess (image " + D.ts +
+              ", the TS guess button) to the far end" : "") + ". Each number is its own ASE IDPP path between the same ends. On the cluster both ends " +
+              "(force field) are optimised first, and ORCA makes its own path between them" + (typeof D.ts === "number" ? " through the TS guess (NEB_TS_XYZFILE)" : "") +
+              " with the project's number of images. Not a DFT result: <code>ase gui " + esc(file) + "</code>.</p>" +
+              (flags ? "<p><b>Look at:</b></p><ul>" + flags + "</ul>" : "<p>No atoms of different molecules come too close along the path.</p>") +
+              "<p><b>Start</b>:</p><ul>" + list(T.left) + "</ul><p><b>Other end</b>:</p><ul>" + list(T.right) + "</ul>";
+            pane.dataset.images = n;
+          }).catch(function () { if (my === token) showTSPath(); });
+        }
         /* Geoff, 2026-11-17: "is there an option to select the TS guess and path": a tick asks for the step's NEB to start
-           from this path (make_neb.py neb_from_drawing.json: the ends from the drawing, and NEB_TS_XYZFILE) */
-        $(".v3d", $(".pane[data-p=p]", body)).insertAdjacentHTML("beforebegin", st.nebdrawn ?
+           from this path (make_neb.py neb_from_drawing.json: the ends from the drawing, and NEB_TS_XYZFILE); 2026-11-20: and
+           with how many images ("allow the user to change the number of steps in the NEB given by TS guess and path") */
+        $(".v3d", pane).insertAdjacentHTML("beforebegin", st.nebdrawn ?
           "<div class='review tspdone'>This step's NEB already starts from the drawing" + (st.nebts ? " and through this TS guess" : "") +
-          " (<i>3D: NEB start</i>).</div>" : reviewBar("tsp"));
+          " (<i>3D: NEB start</i>, where its number of images is chosen).</div>" : reviewBar("tsp") +
+          (T ? "<div class='seg pview' role='group' aria-label='What the 3D view shows'><button data-v='path' class='on' aria-pressed='true'>The TS-guess path (" +
+            frames(P.xyz).length + " images)</button><button data-v='neb' aria-pressed='false'>The NEB from it</button></div>" : ""));
+        var sel = !st.nebdrawn && T ? $("select[data-img]", pane) : null, note = $(".nebimgnote", pane);
+        if (sel) {
+          sel.addEventListener("change", function () { setView("neb"); });     // a number chosen: show that NEB
+          sel.ppSync = function (r) {
+            var w = imgWant(r);
+            if (!$("option[value='" + w + "']", sel)) sel.insertAdjacentHTML("beforeend", imgOption("tsp", w));
+            if (sel.value !== String(w)) sel.value = String(w);
+            note.textContent = imgNote("tsp", r);
+            if (view === "neb") showNEBn(w);
+          };
+          $(".pview", pane).addEventListener("click", function (e) {
+            var b = e.target.closest("button[data-v]"); if (!b) return;
+            if (b.dataset.v === "path") showTSPath(); else showNEBn(imgWant(rv(ch, sid)));
+          });
+          sel.ppSync(rv(ch, sid));
+        }
+        showTSPath();
       }).catch(function () { $(".pane[data-p=p]", body).innerHTML = "<div class='info'>No path for this step.</div>"; });
     }
     /* a path (all images of an xyz file) in a pane: play, slider, key atoms, the bonds that change dashed;
@@ -329,7 +434,8 @@
         v.addModelsAsFrames(P.xyz, "xyz"); styleAll(v, "ball");
         if (!again) v.zoomTo();
         /* position k on the slider shows frame at(k): backwards, from the step's right side to its left side */
-        var at = function (k) { return rev ? n - 1 - k : k; };
+        var back = rev && !opts.noRev;
+        var at = function (k) { return back ? n - 1 - k : k; };
         var mark = typeof opts.mark === "number" ? opts.mark : tsFrame;
         var slider = $("input[type=range]", pane), lab = $(".fr", pane), timer = null, labels = !!pane.ppLabels;
         var k = before !== null ? Math.round(before * (n - 1)) : at(tsFrame === null ? 0 : tsFrame);
@@ -349,7 +455,8 @@
             v.render();
           });
           slider.value = k;
-          lab.textContent = "image " + k + "/" + (n - 1) + (mark !== null && mark !== undefined && j === mark ? "  (TS guess)" : "") + (typeof d[j] === "number" ? "  d = " + d[j].toFixed(2) + " Å" : "");
+          lab.textContent = opts.label ? opts.label(j) : "image " + k + "/" + (n - 1) + (mark !== null && mark !== undefined && j === mark ? "  (TS guess)" : "") + (typeof d[j] === "number" ? "  d = " + d[j].toFixed(2) + " Å" : "");
+          if (opts.onFrame) opts.onFrame(j);
         }
         draw();
         slider.oninput = function () { k = +slider.value; draw(); };
@@ -368,6 +475,7 @@
         tools.addEventListener("click", tools.ppClick);
         pane.ppStop = function () { if (timer) { clearInterval(timer); timer = null; } if (play) play.innerHTML = "&#9654; Play"; };
         pane.ppAt = function () { return n > 1 ? k / (n - 1) : 0; };
+        pane.ppGo = function (j) { k = at(j); draw(); };        // show image j (e.g. a point clicked on a curve)
         return v;
     }
     /* the SCAN option: what a SCAN of the step would start from (built from the DFT structures as mechflow builds it),
@@ -456,29 +564,37 @@
         "<input type='text' class='rnote' maxlength='300' aria-label='your note on this step' placeholder='your note on " + esc(sid) +
         (Rv.shared ? " (saved with the ticks; Steps tab: mechflow approve lines)" : " (kept in this browser; Steps tab: download, mechflow approve lines)") +
         "' value='" + esc(r.note || "") + "'><span class='rvwho'>" + esc(rvWho(r)) + "</span>" +
-        (kind === "neb" && st.nebimg ? imgChoice(r) : "") + "</div>";
+        (kind === "neb" && st.nebimg ? imgChoice("neb", r) : "") +
+        (kind === "tsp" && st.tspimg ? (st.tspimg.counts ? imgChoice("tsp", r) :
+          "<div class='nebimgbar nebimgnone'>No NEB can be built from this TS-guess path: " + esc(st.tspimg.none || "") + "</div>") : "") + "</div>";
     }
     /* the number of images of the step's NEB (Geoff, 2026-11-20: "change the number of images in a NEB in ASE in the
        website and tick that and that number of images"): each count is a path made by ASE's IDPP between the same two
        ends (make_neb_counts.py); the count chosen is kept with the review (img) and goes into project.yaml (neb_images) */
-    function imgCounts() { return st.nebimg ? st.nebimg.counts : []; }
-    function imgPreview(n) { return imgCounts().indexOf(n) >= 0; }
-    function imgWant(r) { return r.img || st.nimages || (st.nebimg && st.nebimg.own); }
-    function imgOption(n) {
-      return "<option value='" + n + "'>" + n + (n === st.nimages ? " (now in the project)" : "") + (imgPreview(n) ? "" : " (no preview)") + "</option>";
+    /* kind "neb": the NEB start tab (the NEB between the DFT ends); "tsp": the TS-guess path tab (the NEB that its tick
+       asks for: the ends from the drawing, through the TS guess). One number of images per step (the review's img) */
+    function imgCounts(kind) {
+      var c = kind === "tsp" ? st.tspimg : st.nebimg;
+      return c && c.counts ? c.counts : [];
     }
-    function imgChoice(r) {
-      var opts = imgCounts().slice(), w = imgWant(r);
+    function imgPreview(kind, n) { return imgCounts(kind).indexOf(n) >= 0; }
+    function imgWant(r) { return r.img || st.nimages || (st.nebimg && st.nebimg.own); }
+    function imgOption(kind, n) {
+      return "<option value='" + n + "'>" + n + (n === st.nimages ? " (now in the project)" : "") + (imgPreview(kind, n) ? "" : " (no preview)") + "</option>";
+    }
+    function imgChoice(kind, r) {
+      var opts = imgCounts(kind).slice(), w = imgWant(r);
       if (st.nimages && opts.indexOf(st.nimages) < 0) opts.push(st.nimages);
       if (w && opts.indexOf(w) < 0) opts.push(w);
       opts.sort(function (a, b) { return a - b; });
       return "<div class='nebimgbar'><label>Images between the two ends: <select data-img='1' aria-label='number of images of the NEB'>" +
-        opts.map(imgOption).join("") + "</select></label> <span class='nebimgnote'></span></div>";
+        opts.map(function (n) { return imgOption(kind, n); }).join("") + "</select></label> <span class='nebimgnote'></span></div>";
     }
-    function imgNote(r) {
+    function imgNote(kind, r) {
       var w = imgWant(r);
       if (r.scan) return "This step's SCAN is ticked, so its NEB (and this number) is not used.";
-      var s = !imgPreview(w) ? "No ASE path with " + w + " images here: the path shown has " + st.nebimg.own + ". " : "";
+      var s = !imgPreview(kind, w) ? "No ASE path with " + w + " images here: " +
+        (kind === "tsp" ? "the NEB is shown with " + st.nimages + ". " : "the path shown has " + st.nebimg.own + ". ") : "";
       if (r.img && r.img !== st.nimages) s += "Your choice; the project still has " + st.nimages + " until it is rebuilt with it (Steps tab: the mechflow lines).";
       else if (r.img) s += "Your choice, as the project has it.";
       return s;
@@ -519,7 +635,7 @@
           pane.dataset.images = own;
         }
         function show(n) {                 // the path with n images between the ends (the step's own if there is none)
-          if (!imgPreview(n) || n === own) { token++; if (shown !== own) showOwn(); return; }
+          if (!imgPreview("neb", n) || n === own) { token++; if (shown !== own) showOwn(); return; }
           if (n === shown) return;
           var my = ++token;
           load("nebn", ch, sid + "_" + n).then(function (D) {
@@ -540,14 +656,65 @@
              in another tab or comes from the repository (refreshBars) */
           sel.ppSync = function (r) {
             var w = imgWant(r);
-            if (!$("option[value='" + w + "']", sel)) sel.insertAdjacentHTML("beforeend", imgOption(w));
+            if (!$("option[value='" + w + "']", sel)) sel.insertAdjacentHTML("beforeend", imgOption("neb", w));
             if (sel.value !== String(w)) sel.value = String(w);
-            note.textContent = imgNote(r);
+            note.textContent = imgNote("neb", r);
             show(w);
           };
           sel.ppSync(rv(ch, sid));
         } else showOwn();
       }).catch(function () { pane.innerHTML = "<div class='info'>No NEB starting path for this step.</div>"; });
+    }
+    /* a SCAN that ran on the cluster (make_website.scan_result, mechflow's own reader): its energy curve, every point in
+       3D, the maximum (mechflow's TS guess) marked (Geoff, 2026-11-20: "put the SCAN curves of S1, S2a, S4b on the site") */
+    var rv_ = null;
+    function showScanRes() {
+      if (rv_) return;
+      rv_ = true;
+      var pane = $(".pane[data-p=r]", body);
+      load("scanres", ch, sid).then(function (D) {
+        var nm = D.names || ["atom " + D.i, "atom " + D.j], n = D.d.length, last = n - 1;
+        var kj = function (x) { return (x >= 0 ? "+" : "") + x.toFixed(1); };
+        var xyz = nebnXYZ(D, sid, function (f) {
+          return sid + " SCAN point " + f + " (image " + D.image[f] + "): d(" + nm[0] + "-" + nm[1] + ") = " + D.d[f].toFixed(3) + " A, dE = " + D.e[f].toFixed(2) + " kJ/mol";
+        });
+        var chart = scanChart(D, nm), box = $(".scanchart", pane);
+        box.innerHTML = chart;
+        var cur = $(".scur", box);
+        var blob = URL.createObjectURL(new Blob([xyz], { type: "chemical/x-xyz" }));
+        playPath(pane, { xyz: xyz, changed: [[D.i, D.j]], d: D.d }, typeof D.max === "number" ? D.max : null, blob, {
+          noRev: true, file: sid + "_scan_points.xyz",
+          label: function (j) {
+            return "point " + j + "/" + last + " (image " + D.image[j] + ")  d = " + D.d[j].toFixed(3) + " Å  ΔE = " + kj(D.e[j]) + " kJ/mol" +
+              (j === D.max ? "  (maximum)" : "");
+          },
+          onFrame: function (j) {
+            var c = $(".spt[data-k='" + j + "']", box);
+            if (c && cur) { cur.setAttribute("cx", c.getAttribute("cx")); cur.setAttribute("cy", c.getAttribute("cy")); }
+            pane.dataset.point = j;
+          }
+        });
+        box.addEventListener("click", function (e) {
+          var c = e.target.closest(".spt"); if (c) pane.ppGo(+c.dataset.k);
+        });
+        var mx = typeof D.max === "number" ? D.max : null, stopped = D.planned && n < D.planned;
+        var st_ = D.status || {}, rm = D.start_rmsd;
+        $(".scanresinfo", pane).innerHTML =
+          "<p><b>The SCAN that ran on the cluster</b> (ωB97X-D3BJ/def2-TZVP, CPCM chloroform" + (D.source ? "; copied from <code>" + esc(D.source) + "</code>" : "") + "): " +
+          esc(nm[0]) + " – " + esc(nm[1]) + (D.d0 !== null && D.d0 !== undefined ? " from " + D.d0.toFixed(3) + " to " + D.d1.toFixed(3) + " Å in " + D.planned + " points" : "") +
+          ". <b>" + n + " converged point" + (n === 1 ? "" : "s") + "</b>" + (stopped ? " of " + D.planned + ": it stopped early (the job ended before the last point)" : "") +
+          (D.parts > 1 ? ", in " + D.parts + " parts (resumed)" : "") + ". The energies are those of the constrained optimisations (electronic, not free energies), " +
+          "relative to the first point.</p>" +
+          (mx !== null ? "<p><b>Maximum</b> (the TS guess mechflow takes: the highest point with lower points on both sides): point " + mx + " (image " + D.image[mx] +
+            "), d = " + D.d[mx].toFixed(3) + " Å, ΔE = " + kj(D.e[mx]) + " kJ/mol." +
+            (D.e[last] > D.e[mx] ? " <span class='scanbad'>The SCAN ends higher than this maximum (ΔE = " + kj(D.e[last]) + " kJ/mol at d = " + D.d[last].toFixed(3) +
+              " Å): the energy goes on rising after it.</span>" : " After it the energy falls to ΔE = " + kj(D.e[last]) + " kJ/mol at d = " + D.d[last].toFixed(3) + " Å.") + "</p>" :
+            "<p class='scanbad'><b>No maximum</b> with lower points on both sides, so mechflow has no TS guess from this SCAN.</p>") +
+          (st_.detail ? "<p><b>mechflow</b> (in that download): " + esc(st_.stage || "") + " – " + esc(st_.detail) + "</p>" : "") +
+          (typeof rm === "number" ? "<p>It started from <code>start_opt.xyz</code>: RMSD " + rm.toFixed(2) + " Å from the SCAN start shown in <i>3D: SCAN</i> (today's structures)" +
+            (rm < 0.05 ? ", the same structure." : rm < 0.3 ? ", nearly the same." : ": a different structure (the SCAN start has changed since this SCAN ran).") + "</p>" : "") +
+          "<p>Click a point on the curve to see that structure; <i>Maximum</i> goes to the maximum. <code>ase gui " + esc(sid) + "_scan_points.xyz</code> opens every point.</p>";
+      }).catch(function () { pane.innerHTML = "<div class='info'>No SCAN result for this step.</div>"; });
     }
     function showDFT() {
       load("dft", ch, sid).then(function (D) {
@@ -1796,7 +1963,10 @@
       else waiting.push(s);
     });
     var link = function (s) { return "<a href='#' data-step='" + esc(s) + "'>" + esc(s) + "</a>"; };
-    return "<div class='rvtodo'><b>Ready to tick, not ticked yet</b> (" + ready.length + "; both ends from DFT structures): " +
+    var scans = Object.keys(st).filter(function (s) { return st[s].scanres; }).sort(nat);
+    return (scans.length ? "<div class='rvtodo rvscans'><b>SCAN results from the cluster</b> (" + scans.length + "; the energy curve and every point): " +
+        scans.map(function (s) { return "<a href='#' data-step='" + esc(s) + "' data-pane='r'>" + esc(s) + "</a>"; }).join(" ") + "</div>" : "") +
+      "<div class='rvtodo'><b>Ready to tick, not ticked yet</b> (" + ready.length + "; both ends from DFT structures): " +
       (ready.length ? ready.map(link).join(" ") : "none") + "</div>" +
       (waiting.length ? "<div class='rvtodo rvwait'><b>Waiting for the DFT structures of their intermediates</b> (" + waiting.length + "): " +
         waiting.map(function (s) { return "<span title='" + esc(typeof st[s].neb === "string" ? st[s].neb : "") + "'>" + esc(s) + "</span>"; }).join(" ") +
@@ -1807,10 +1977,11 @@
     if (!el) return;
     el.addEventListener("click", function (e) {
       var a = e.target.dataset.r;
-      if (e.target.dataset.step) {                       // a step ready to tick: its window, on its NEB start
+      if (e.target.dataset.step) {                       // a step ready to tick: its window, on its NEB start (or SCAN result)
         e.preventDefault();
+        var pn = e.target.dataset.pane === "r" ? "r" : "n";
         openStep(e.target.dataset.step, "fwd");
-        setTimeout(function () { var b = document.querySelector(".win .tabs button[data-p='n']"); if (b) b.click(); }, 300);
+        setTimeout(function () { var b = document.querySelector(".win .tabs button[data-p='" + pn + "']"); if (b) b.click(); }, 300);
         return;
       }
       if (a === "cmd") { el.dataset.open = el.dataset.open === "1" ? "0" : "1"; reviewPanel(); }
