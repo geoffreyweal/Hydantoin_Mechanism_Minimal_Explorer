@@ -6,7 +6,8 @@
      {"format": "hydantoin-minimal-review", "version": 1, "about": "...",
       "review": {"O|S10": {"scan": true, "by": "geoffreyweal", "t": "2026-11-16T22:51:54.593Z"}, ...}}
    one entry per chalcogen and step: neb / scan (the NEB / SCAN start is fine), tsp (start the NEB from the TS-guess
-   path), note, by (GitHub login), t (when). The newest change of an entry wins. An entry with nothing ticked and no note
+   path), img (the number of images of the step's NEB, chosen in its NEB start tab), note, by (GitHub login), t (when).
+   The newest change of an entry wins. An entry with nothing ticked and no note
    is a step whose ticks were taken off; it is kept, so that the change reaches the other browsers.
 
    Anyone can read the file (raw.githubusercontent.com). To change it, sign in with GitHub: the site's own GitHub App
@@ -28,12 +29,13 @@
   var LOGIN = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/, KEY = /^[OS]\|S\d{1,3}[ab]?$/;
   var TIME = /^\d{4}-\d\d-\d\dT\d\d:\d\d(?::\d\d(?:\.\d{1,6})?)?Z$/;
   var TOKEN = /^[A-Za-z0-9_]{20,255}$/, CODE = /^[A-Za-z0-9_-]{8,128}$/, CLIENT_ID = /^[A-Za-z0-9._-]{8,64}$/;
-  var FLAGS = ["neb", "scan", "tsp"], NOTE_MAX = 300, MAX_ENTRIES = 2000;
+  var FLAGS = ["neb", "scan", "tsp"], NOTE_MAX = 300, MAX_ENTRIES = 2000, IMG_MIN = 3, IMG_MAX = 200;
+  function img(x) { return typeof x === "number" && x % 1 === 0 && x >= IMG_MIN && x <= IMG_MAX ? x : 0; }
   var DEBOUNCE = 1500, RETRIES = 4, TOKEN_LIFE = 8 * 3600, SIGNIN_WAIT = 15 * 60 * 1000;
   var EXPIRED = "sign-in expired, sign in again";
   var ABOUT = "The Step 2 review of the Hydantoin Proposed Mechanisms website, written by the site when a signed-in " +
     "collaborator ticks a start: per chalcogen and step (\"O|S10\"), neb / scan = the NEB / SCAN start is fine, " +
-    "tsp = start the NEB from the TS-guess path, note, by = GitHub login, t = when. The newest change of an entry " +
+    "tsp = start the NEB from the TS-guess path, img = the number of images of the step's NEB, note, by = GitHub login, t = when. The newest change of an entry " +
     "wins; an entry with nothing ticked and no note is one whose ticks were taken off.";
   var FILE = location.protocol === "file:";
   /* In a frame (another site showing this page): no sign-in and no stored token, so that a framing page cannot trick
@@ -149,6 +151,7 @@
     FLAGS.forEach(function (f) { if (e[f] === true) r[f] = true; });
     var n = text(e.note, NOTE_MAX);
     if (n) r.note = n;
+    if (img(e.img)) r.img = e.img;
     if (by && typeof e.by === "string" && LOGIN.test(e.by)) r.by = e.by;
     r.t = time(e.t);
     return r;
@@ -159,7 +162,7 @@
     Object.keys(m).forEach(function (k) { if (KEY.test(k) && n++ < MAX_ENTRIES) out[k] = cleanEntry(m[k], by); });
     return out;
   }
-  function blank(e) { return !e || (!e.neb && !e.scan && !e.tsp && !e.note); }
+  function blank(e) { return !e || (!e.neb && !e.scan && !e.tsp && !e.note && !e.img); }
   function parseDoc(t) {
     if (!String(t).trim()) return {};               // an empty file: nothing yet
     var j, err;
@@ -180,7 +183,7 @@
     var rev = {};
     Object.keys(map).sort(nat).forEach(function (k) {
       var e = map[k], o = {};
-      ["by", "neb", "note", "scan", "t", "tsp"].forEach(function (f) { if (e[f]) o[f] = e[f]; });
+      ["by", "img", "neb", "note", "scan", "t", "tsp"].forEach(function (f) { if (e[f]) o[f] = e[f]; });
       rev[k] = o;
     });
     return JSON.stringify({ about: ABOUT, format: FORMAT, review: rev, version: 1 }, null, 1) + "\n";
@@ -252,10 +255,11 @@
   }
   function set(ch, sid, f, v) {
     var k = ch + "|" + sid;
-    if (!KEY.test(k) || (FLAGS.indexOf(f) < 0 && f !== "note")) return false;
+    if (!KEY.test(k) || (FLAGS.indexOf(f) < 0 && f !== "note" && f !== "img")) return false;
     var p = pick(k), e = {}, m = clone(localMap());
-    if (p) FLAGS.concat(["note"]).forEach(function (x) { if (p.e[x]) e[x] = p.e[x]; });
+    if (p) FLAGS.concat(["note", "img"]).forEach(function (x) { if (p.e[x]) e[x] = p.e[x]; });
     if (f === "note") { var n = text(v, NOTE_MAX); if (n) e.note = n; else delete e.note; }
+    else if (f === "img") { if (img(v)) e.img = v; else delete e.img; }      // the NEB's images (0 / null: the project's)
     else if (v) {                    // one Step 2 choice per step: ticking one takes the other two off
       FLAGS.forEach(function (x) { delete e[x]; });
       e[f] = true;
@@ -291,7 +295,7 @@
       var p = pick(k);
       if (has(out, k) || !p || blank(p.e)) return;
       out[k] = {};
-      ["neb", "scan", "tsp", "note", "by", "t"].forEach(function (f) { if (p.e[f]) out[k][f] = p.e[f]; });
+      ["neb", "scan", "tsp", "img", "note", "by", "t"].forEach(function (f) { if (p.e[f]) out[k][f] = p.e[f]; });
     });
     return out;
   }
@@ -422,7 +426,8 @@
   function describe(keys, batch, login) {      // the commit message
     var parts = keys.map(function (k) {
       var e = batch[k], q = k.split("|"), what = [e.neb ? "NEB" : "", e.scan ? "SCAN" : "", e.tsp ? "TS path" : ""].filter(Boolean).join(" + ");
-      return q[0] + " " + q[1] + " " + (what ? what + (e.note ? " + note" : "") : e.note ? "note" : "cleared");
+      var extra = (e.img ? " + " + e.img + " images" : "") + (e.note ? " + note" : "");
+      return q[0] + " " + q[1] + " " + (what ? what + extra : extra ? extra.slice(3) : "cleared");
     });
     var out = "Step 2 review by @" + login + ": ";
     for (var i = 0; i < parts.length; i++) {
@@ -447,7 +452,7 @@
       keys.forEach(function (k) {               // the newer change of each entry wins
         if (has(d, k) && !newer(batch[k].t, d[k].t)) return;
         var e = { by: login };
-        FLAGS.concat(["note", "t"]).forEach(function (f) { if (batch[k][f]) e[f] = batch[k][f]; });
+        FLAGS.concat(["note", "img", "t"]).forEach(function (f) { if (batch[k][f]) e[f] = batch[k][f]; });
         d[k] = e;
         put.push(k);
       });

@@ -166,6 +166,19 @@
     el.v3dViewer = v;                       /* (for the browser tests) */
     return v;
   }
+  function nebnXYZ(D, sid) {
+    var a = D.atoms, na = a.length, q = D.q, nf = q.length / (3 * na), cur = [], out = [];
+    if (!na || nf !== Math.floor(nf) || nf < 2) throw new Error("not a path");
+    for (var f = 0; f < nf; f++) {
+      out.push(String(na), sid + " image " + f + "/" + (nf - 1) + " (" + D.n + " images between the ends; NEB start, ASE IDPP; coordinates to 0.001 A)");
+      for (var i = 0; i < na; i++) {
+        var j = 3 * (f * na + i), b = 3 * i;
+        for (var x = 0; x < 3; x++) cur[b + x] = (f ? cur[b + x] : 0) + q[j + x];
+        out.push(a[i] + " " + (cur[b] / 1000).toFixed(3) + " " + (cur[b + 1] / 1000).toFixed(3) + " " + (cur[b + 2] / 1000).toFixed(3));
+      }
+    }
+    return out.join("\n") + "\n";
+  }
   function styleAll(v, mode) {
     if (mode === "line") v.setStyle({}, { line: { colorscheme: "Jmol" } });
     else if (mode === "spacefill") v.setStyle({}, { sphere: { colorscheme: "Jmol" } });
@@ -303,16 +316,27 @@
       }).catch(function () { $(".pane[data-p=p]", body).innerHTML = "<div class='info'>No path for this step.</div>"; });
     }
     /* a path (all images of an xyz file) in a pane: play, slider, key atoms, the bonds that change dashed;
-       tsFrame: the image marked as the TS guess (null: none) */
-    function playPath(pane, P, tsFrame, href) {
-        var fr = frames(P.xyz), n = fr.length, v = viewer3d($(".v3d", pane));
-        v.addModelsAsFrames(P.xyz, "xyz"); styleAll(v, "ball"); v.zoomTo();
+       tsFrame: the image marked as the TS guess and shown first (null: none); opts.mark: the TS guess's image, marked only;
+       opts.file: the name to download it as. Called again on the same pane (another number of images), it shows the new
+       path in the same viewer, from the same view and as far along the path */
+    function playPath(pane, P, tsFrame, href, opts) {
+        opts = opts || {};
+        var fr = frames(P.xyz), n = fr.length, box = $(".v3d", pane), again = !!pane.ppStop;
+        var before = again ? pane.ppAt() : null;
+        if (again) pane.ppStop();
+        var v = again && box.v3dViewer ? box.v3dViewer : viewer3d(box);
+        if (again) { v.removeAllModels(); v.removeAllShapes(); v.removeAllLabels(); }
+        v.addModelsAsFrames(P.xyz, "xyz"); styleAll(v, "ball");
+        if (!again) v.zoomTo();
         /* position k on the slider shows frame at(k): backwards, from the step's right side to its left side */
         var at = function (k) { return rev ? n - 1 - k : k; };
-        var slider = $("input[type=range]", pane), lab = $(".fr", pane), k = at(tsFrame === null ? 0 : tsFrame), timer = null, labels = false;
+        var mark = typeof opts.mark === "number" ? opts.mark : tsFrame;
+        var slider = $("input[type=range]", pane), lab = $(".fr", pane), timer = null, labels = !!pane.ppLabels;
+        var k = before !== null ? Math.round(before * (n - 1)) : at(tsFrame === null ? 0 : tsFrame);
         var ka = keyAtoms((xyzOf(st.start, ch) || "").split(/\r?\n/)[1]), d = Array.isArray(P.d) ? P.d : [];
         slider.max = n - 1;
-        $("a[download]", pane).href = href;
+        var dl = $("a[download]", pane);
+        dl.href = href; dl.setAttribute("download", opts.file || "");
         function draw() {
           var j = at(k), f = fr[j];
           Promise.resolve(v.setFrame(j)).then(function () {
@@ -325,20 +349,25 @@
             v.render();
           });
           slider.value = k;
-          lab.textContent = "image " + k + "/" + (n - 1) + (tsFrame !== null && j === tsFrame ? "  (TS guess)" : "") + (typeof d[j] === "number" ? "  d = " + d[j].toFixed(2) + " Å" : "");
+          lab.textContent = "image " + k + "/" + (n - 1) + (mark !== null && mark !== undefined && j === mark ? "  (TS guess)" : "") + (typeof d[j] === "number" ? "  d = " + d[j].toFixed(2) + " Å" : "");
         }
         draw();
         slider.oninput = function () { k = +slider.value; draw(); };
-        $(".tools", pane).addEventListener("click", function (e) {
+        var tools = $(".tools", pane), play = $("button[data-a=play]", pane);
+        if (tools.ppClick) tools.removeEventListener("click", tools.ppClick);
+        tools.ppClick = function (e) {
           var a = e.target.dataset.a;
           if (a === "ts" && tsFrame !== null) { k = at(tsFrame); draw(); }
-          if (a === "labels") { labels = !labels; draw(); }
+          if (a === "labels") { labels = pane.ppLabels = !labels; draw(); }
           if (a === "play") {
             if (timer) { clearInterval(timer); timer = null; e.target.innerHTML = "&#9654; Play"; return; }
             e.target.innerHTML = "&#10073;&#10073; Pause";
             timer = setInterval(function () { if (!document.body.contains(pane)) { clearInterval(timer); return; } k = (k + 1) % n; draw(); }, Math.max(60, Math.round(4000 / n)));
           }
-        });
+        };
+        tools.addEventListener("click", tools.ppClick);
+        pane.ppStop = function () { if (timer) { clearInterval(timer); timer = null; } if (play) play.innerHTML = "&#9654; Play"; };
+        pane.ppAt = function () { return n > 1 ? k / (n - 1) : 0; };
         return v;
     }
     /* the SCAN option: what a SCAN of the step would start from (built from the DFT structures as mechflow builds it),
@@ -426,7 +455,33 @@
         " <span class='rvone'>(one choice per step: NEB start, SCAN or TS-guess path; ticking one takes off the others)</span></label>" +
         "<input type='text' class='rnote' maxlength='300' aria-label='your note on this step' placeholder='your note on " + esc(sid) +
         (Rv.shared ? " (saved with the ticks; Steps tab: mechflow approve lines)" : " (kept in this browser; Steps tab: download, mechflow approve lines)") +
-        "' value='" + esc(r.note || "") + "'><span class='rvwho'>" + esc(rvWho(r)) + "</span></div>";
+        "' value='" + esc(r.note || "") + "'><span class='rvwho'>" + esc(rvWho(r)) + "</span>" +
+        (kind === "neb" && st.nebimg ? imgChoice(r) : "") + "</div>";
+    }
+    /* the number of images of the step's NEB (Geoff, 2026-11-20: "change the number of images in a NEB in ASE in the
+       website and tick that and that number of images"): each count is a path made by ASE's IDPP between the same two
+       ends (make_neb_counts.py); the count chosen is kept with the review (img) and goes into project.yaml (neb_images) */
+    function imgCounts() { return st.nebimg ? st.nebimg.counts : []; }
+    function imgPreview(n) { return imgCounts().indexOf(n) >= 0; }
+    function imgWant(r) { return r.img || st.nimages || (st.nebimg && st.nebimg.own); }
+    function imgOption(n) {
+      return "<option value='" + n + "'>" + n + (n === st.nimages ? " (now in the project)" : "") + (imgPreview(n) ? "" : " (no preview)") + "</option>";
+    }
+    function imgChoice(r) {
+      var opts = imgCounts().slice(), w = imgWant(r);
+      if (st.nimages && opts.indexOf(st.nimages) < 0) opts.push(st.nimages);
+      if (w && opts.indexOf(w) < 0) opts.push(w);
+      opts.sort(function (a, b) { return a - b; });
+      return "<div class='nebimgbar'><label>Images between the two ends: <select data-img='1' aria-label='number of images of the NEB'>" +
+        opts.map(imgOption).join("") + "</select></label> <span class='nebimgnote'></span></div>";
+    }
+    function imgNote(r) {
+      var w = imgWant(r);
+      if (r.scan) return "This step's SCAN is ticked, so its NEB (and this number) is not used.";
+      var s = !imgPreview(w) ? "No ASE path with " + w + " images here: the path shown has " + st.nebimg.own + ". " : "";
+      if (r.img && r.img !== st.nimages) s += "Your choice; the project still has " + st.nimages + " until it is rebuilt with it (Steps tab: the mechflow lines).";
+      else if (r.img) s += "Your choice, as the project has it.";
+      return s;
     }
     /* the NEB starting path: the step's two ends from the DFT structures (make_neb.py), ASE IDPP images between them */
     var nv = null;
@@ -439,18 +494,59 @@
         return;
       }
       load("neb", ch, sid).then(function (P) {
-        nv = playPath(pane, P, null, "xyz/neb/Ch_" + ch + "/" + encodeURIComponent(sid) + "_neb.xyz");
-        $(".v3d", pane).insertAdjacentHTML("beforebegin", reviewBar("neb"));
-        var flags = (P.flags || []).map(function (f) { return "<li class='nebflag'>" + esc(f) + "</li>"; }).join("");
+        nv = true;
+        var own = P.images - 2, href0 = "xyz/neb/Ch_" + ch + "/" + encodeURIComponent(sid) + "_neb.xyz";
+        var shown = null, token = 0, dl = $("a[download]", pane);
         var list = function (a) { return (a || []).map(function (x) { return "<li>" + esc(x) + "</li>"; }).join(""); };
-        $(".nebinfo", pane).innerHTML = "<p>The starting path of an NEB-CI" + (rev ? " (played backwards)" : "") + ": " +
-          (st.nebdrawn ? "built from the drawing like the TS-guess path (the start as drawn, the far end with the step's bonds changed, " +
-           "force field; both ends optimised first on the cluster)" + (st.nebts ? ", and the NEB starts through the TS guess of the TS-guess path " +
-           "(NEB_TS_XYZFILE)" : "") + ", " : "the two ends from the DFT-optimised structures, ") +
-          (P.images - 2) + " images between them by ASE's IDPP interpolation. Not a DFT result: " +
-          "<code>ase gui " + esc(sid) + "_neb.xyz</code>. On the cluster an end of more than one molecule is optimised before the NEB runs.</p>" +
-          (flags ? "<p><b>Look at:</b></p><ul>" + flags + "</ul>" : "<p>No atoms of different molecules come too close along the path.</p>") +
-          "<p><b>Left end</b> (" + esc(P.reaction_left) + "):</p><ul>" + list(P.left) + "</ul><p><b>Right end</b> (" + esc(P.reaction_right) + "):</p><ul>" + list(P.right) + "</ul>";
+        function info(n, flagList, file) {
+          var flags = (flagList || []).map(function (f) { return "<li class='nebflag'>" + esc(f) + "</li>"; }).join("");
+          $(".nebinfo", pane).innerHTML = "<p>The starting path of an NEB-CI" + (rev ? " (played backwards)" : "") + ": " +
+            (st.nebdrawn ? "built from the drawing like the TS-guess path (the start as drawn, the far end with the step's bonds changed, " +
+             "force field; both ends optimised first on the cluster)" + (st.nebts ? ", and the NEB starts through the TS guess of the TS-guess path " +
+             "(NEB_TS_XYZFILE)" : "") + ", " : "the two ends from the DFT-optimised structures, ") +
+            "<span class='nebn'>" + n + "</span> images between them by ASE's IDPP interpolation" +
+            (st.nebimg && st.nebimg.counts.length > 1 ? " (another number: <i>Images between the two ends</i> above; each is its own ASE IDPP path between the same ends)" : "") +
+            ". Not a DFT result: <code>ase gui " + esc(file) + "</code>. On the cluster an end of more than one molecule is optimised before the NEB runs, " +
+            "and ORCA makes its own IDPP path between them with the project's number of images.</p>" +
+            (flags ? "<p><b>Look at:</b></p><ul>" + flags + "</ul>" : "<p>No atoms of different molecules come too close along the path.</p>") +
+            "<p><b>Left end</b> (" + esc(P.reaction_left) + "):</p><ul>" + list(P.left) + "</ul><p><b>Right end</b> (" + esc(P.reaction_right) + "):</p><ul>" + list(P.right) + "</ul>";
+        }
+        function dropBlob() { if (dl.ppBlob) { URL.revokeObjectURL(dl.ppBlob); dl.ppBlob = null; } }
+        function showOwn() {
+          dropBlob(); shown = own;
+          playPath(pane, P, null, href0, { mark: st.nebimg ? st.nebimg.ts : null });
+          info(own, P.flags, sid + "_neb.xyz");
+          pane.dataset.images = own;
+        }
+        function show(n) {                 // the path with n images between the ends (the step's own if there is none)
+          if (!imgPreview(n) || n === own) { token++; if (shown !== own) showOwn(); return; }
+          if (n === shown) return;
+          var my = ++token;
+          load("nebn", ch, sid + "_" + n).then(function (D) {
+            if (my !== token) return;      // another count was chosen in the meantime
+            var xyz = nebnXYZ(D, sid), file = sid + "_neb_" + n + "_images.xyz";
+            dropBlob();
+            dl.ppBlob = URL.createObjectURL(new Blob([xyz], { type: "chemical/x-xyz" }));
+            shown = n;
+            playPath(pane, { xyz: xyz, changed: P.changed }, null, dl.ppBlob, { mark: D.ts, file: file });
+            info(n, D.flags, file);
+            pane.dataset.images = n;
+          }).catch(function () { if (my === token) showOwn(); });
+        }
+        $(".v3d", pane).insertAdjacentHTML("beforebegin", reviewBar("neb"));
+        var sel = $("select[data-img]", pane), note = $(".nebimgnote", pane);
+        if (sel) {
+          /* the review says which count (yours, else the project's): the list and the path follow it, also when it changes
+             in another tab or comes from the repository (refreshBars) */
+          sel.ppSync = function (r) {
+            var w = imgWant(r);
+            if (!$("option[value='" + w + "']", sel)) sel.insertAdjacentHTML("beforeend", imgOption(w));
+            if (sel.value !== String(w)) sel.value = String(w);
+            note.textContent = imgNote(r);
+            show(w);
+          };
+          sel.ppSync(rv(ch, sid));
+        } else showOwn();
       }).catch(function () { pane.innerHTML = "<div class='info'>No NEB starting path for this step.</div>"; });
     }
     function showDFT() {
@@ -467,6 +563,7 @@
   document.addEventListener("change", function (e) {
     var t = e.target, w = t.closest ? t.closest(".review") : null;
     if (w && t.dataset.ok) setRv(w.dataset.ch, w.dataset.sid, t.dataset.ok, t.checked);
+    if (w && t.dataset.img) setRv(w.dataset.ch, w.dataset.sid, "img", +t.value);
   });
   document.addEventListener("input", function (e) {
     var t = e.target, w = t.closest ? t.closest(".review") : null;
@@ -486,6 +583,8 @@
       if (n && n !== document.activeElement && n.value.trim() !== (r.note || "")) n.value = r.note || "";
       var who = $(".rvwho", w);
       if (who) who.textContent = rvWho(r);
+      var sel = $("select[data-img]", w);
+      if (sel && sel.ppSync) sel.ppSync(r);
     });
   }
 
@@ -1564,7 +1663,7 @@
   function happy(r) { return !!(r && (r.neb || r.scan || r.tsp)); }
   function happyWhat(r) {
     return [r.neb ? "its NEB start" : "", r.scan ? "its SCAN start" : "", r.tsp ? "its TS-guess path for the NEB" : ""]
-      .filter(Boolean).join(", ");
+      .filter(Boolean).join(", ") + (r.img && !r.scan ? " (" + r.img + " images)" : "");
   }
   function tables() {
     var q = query(), sp = M().species, rows = [];
@@ -1600,6 +1699,7 @@
         (function (r) {
           return (r.neb ? "<span class='rvok'>NEB&nbsp;&#10003;</span> " : "") + (r.scan ? "<span class='rvok'>SCAN&nbsp;&#10003;</span> " : "") +
             (r.tsp ? "<span class='rvtsp' title='start its NEB from the TS-guess path (send the list to Claude)'>TS&nbsp;path</span> " : "") +
+            (r.img ? "<span class='rvimg' title='the number of images of its NEB (chosen in 3D: NEB start)'>" + r.img + "&nbsp;images</span> " : "") +
             (r.note ? "<span class='rvnote' title='" + esc(r.note) + "'>&#9998;&nbsp;" + esc(r.note.length > 40 ? r.note.slice(0, 39) + "\u2026" : r.note) + "</span>" : "");
         })(r0) + "</td></tr>" });
     });
@@ -1664,17 +1764,20 @@
     out.push(plain.length || Object.keys(byNote).length || tsp.length || scan.length ? "mechflow next && mechflow submit" : "# (nothing ticked yet)");
     if (tspTodo.length) out.push("# NEB from the TS-guess path, to be built on the Mac (ask Claude: neb_from_drawing.json): " + tspTodo.join(" "));
     if (scanTodo.length) out.push("# SCAN start ticked, but the project still runs these steps' NEB (ask Claude: step2: scan in project.yaml): " + scanTodo.join(" "));
+    var imgs = ids.filter(function (sid) { var r = rv(ch, sid), s = steps[sid] || {}; return r.img && !r.scan && r.img !== s.nimages; });
+    if (imgs.length) out.push("# NEB images chosen, not in project.yaml yet (ask Claude: neb_images; then copy project.yaml before the NEB is written): " +
+      imgs.map(function (sid) { return sid + " " + rv(ch, sid).img + " (now " + steps[sid].nimages + ")"; }).join(", "));
     return out.join("\n");
   }
   function reviewPanel() {
     var el = $("#review");
     if (!el) return;
-    var ids = reviewKeys(S.ch), nN = 0, nS = 0, nT = 0, nP = 0;
-    ids.forEach(function (sid) { var r = rv(S.ch, sid); if (r.neb) nN++; if (r.scan) nS++; if (r.note) nT++; if (r.tsp) nP++; });
+    var ids = reviewKeys(S.ch), nN = 0, nS = 0, nT = 0, nP = 0, nI = 0;
+    ids.forEach(function (sid) { var r = rv(S.ch, sid); if (r.neb) nN++; if (r.scan) nS++; if (r.note) nT++; if (r.tsp) nP++; if (r.img) nI++; });
     var open = el.dataset.open === "1";
     el.innerHTML = "<b>Step 2 review</b> (" + esc(CHN[S.ch]) + "): " + nN + " NEB start" + (nN === 1 ? "" : "s") + " and " + nS + " SCAN start" +
       (nS === 1 ? "" : "s") + " ticked, " + nT + " note" + (nT === 1 ? "" : "s") + "; " + nP + " step" + (nP === 1 ? "" : "s") +
-      " to start from the TS-guess path. Tick a start in the step window (<i>3D: NEB start</i>, <i>3D: SCAN</i>, the TS-guess path). " +
+      " to start from the TS-guess path, " + nI + " NEB image count" + (nI === 1 ? "" : "s") + " chosen. Tick a start in the step window (<i>3D: NEB start</i>, <i>3D: SCAN</i>, the TS-guess path). " +
       "<button data-r='cmd'>" + (open ? "Hide" : "Show") + " the mechflow lines</button><button data-r='dl'>Download</button>" +
       "<button data-r='imp'>Import</button><button data-r='clear'>Clear (" + esc(CHN[S.ch]) + ")</button>" +
       "<input type='file' accept='.json,application/json' hidden>" +
