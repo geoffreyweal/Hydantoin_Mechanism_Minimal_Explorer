@@ -457,6 +457,7 @@
               if (a && b) v.addCylinder({ start: { x: a.x, y: a.y, z: a.z }, end: { x: b.x, y: b.y, z: b.z }, radius: 0.08, color: st.colour, dashed: true, fromCap: 1, toCap: 1 });
             });
             if (labels) Object.keys(ka).forEach(function (i) { var a = f.atoms[+i]; if (a) v.addLabel(ka[i], { position: { x: a.x, y: a.y, z: a.z }, fontSize: 11, fontColor: "black", backgroundColor: "white", backgroundOpacity: 0.75, inFront: true }); });
+            if (opts.extra) opts.extra(v, j, f, n);          // e.g. the NEB start's held distances at its two ends
             v.render();
           });
           slider.value = k;
@@ -619,6 +620,26 @@
         var own = P.images - 2, href0 = "xyz/neb/Ch_" + ch + "/" + encodeURIComponent(sid) + "_neb.xyz";
         var shown = null, token = 0, dl = $("a[download]", pane);
         var list = function (a) { return (a || []).map(function (x) { return "<li>" + esc(x) + "</li>"; }).join(""); };
+        /* the distances held while an end of more than one molecule is optimised on the cluster (%GEOM Constraints; Geoff,
+           2026-11-21), atoms numbered from 0 as in the xyz file */
+        var held = function (side) {
+          var h = (P.held || {})[side];
+          return h && h.length ? "<p class='nebheld'>Held while this end is optimised on the cluster (green in 3D at " +
+            (side === "left" ? "the first image" : "the last image") + "): " + h.map(function (x) { return esc(x[1]); }).join("; ") + ".</p>" : "";
+        };
+        /* the held distances drawn at the two ends of the path: green sleeves (left end = image 0, right end = the last
+           image; the frames run from the step's left side to its right side) */
+        var heldDraw = function (v, j, f, n) {
+          var h = (P.held || {})[j === 0 ? "left" : j === n - 1 ? "right" : ""], drawn = 0;
+          (h || []).forEach(function (x) {
+            if (x[0].length !== 2) return;
+            var a = f.atoms[x[0][0]], b = f.atoms[x[0][1]];
+            /* a green sleeve: wider than the dashed line of a bond that changes (often the same pair), so both show */
+            if (a && b) { v.addCylinder({ start: { x: a.x, y: a.y, z: a.z }, end: { x: b.x, y: b.y, z: b.z }, radius: 0.16,
+                                          color: "#2e9d3a", opacity: 0.5, fromCap: 1, toCap: 1 }); drawn++; }
+          });
+          pane.dataset.held = drawn;         // (for the tests: how many are drawn on this image)
+        };
         function info(n, flagList, file) {
           var flags = (flagList || []).map(function (f) { return "<li class='nebflag'>" + esc(f) + "</li>"; }).join("");
           $(".nebinfo", pane).innerHTML = "<p>The starting path of an NEB-CI" + (rev ? " (played backwards)" : "") + ": " +
@@ -627,15 +648,17 @@
              "(NEB_TS_XYZFILE)" : "") + ", " : "the two ends from the DFT-optimised structures, ") +
             "<span class='nebn'>" + n + "</span> images between them by ASE's IDPP interpolation" +
             (st.nebimg && st.nebimg.counts.length > 1 ? " (another number: <i>Images between the two ends</i> above; each is its own ASE IDPP path between the same ends)" : "") +
-            ". Not a DFT result: <code>ase gui " + esc(file) + "</code>. On the cluster an end of more than one molecule is optimised before the NEB runs, " +
+            ". Not a DFT result: <code>ase gui " + esc(file) + "</code>. On the cluster an end of more than one molecule is optimised before the NEB runs " +
+            "(the distances listed under it held, so that its molecules stay as set up for the step), " +
             "and ORCA makes its own IDPP path between them with the project's number of images.</p>" +
             (flags ? "<p><b>Look at:</b></p><ul>" + flags + "</ul>" : "<p>No atoms of different molecules come too close along the path.</p>") +
-            "<p><b>Left end</b> (" + esc(P.reaction_left) + "):</p><ul>" + list(P.left) + "</ul><p><b>Right end</b> (" + esc(P.reaction_right) + "):</p><ul>" + list(P.right) + "</ul>";
+            "<p><b>Left end</b> (" + esc(P.reaction_left) + "):</p><ul>" + list(P.left) + "</ul>" + held("left") +
+            "<p><b>Right end</b> (" + esc(P.reaction_right) + "):</p><ul>" + list(P.right) + "</ul>" + held("right");
         }
         function dropBlob() { if (dl.ppBlob) { URL.revokeObjectURL(dl.ppBlob); dl.ppBlob = null; } }
         function showOwn() {
           dropBlob(); shown = own;
-          playPath(pane, P, null, href0, { mark: st.nebimg ? st.nebimg.ts : null });
+          playPath(pane, P, null, href0, { mark: st.nebimg ? st.nebimg.ts : null, extra: heldDraw });
           info(own, P.flags, sid + "_neb.xyz");
           pane.dataset.images = own;
         }
@@ -649,7 +672,7 @@
             dropBlob();
             dl.ppBlob = URL.createObjectURL(new Blob([xyz], { type: "chemical/x-xyz" }));
             shown = n;
-            playPath(pane, { xyz: xyz, changed: P.changed }, null, dl.ppBlob, { mark: D.ts, file: file });
+            playPath(pane, { xyz: xyz, changed: P.changed }, null, dl.ppBlob, { mark: D.ts, file: file, extra: heldDraw });
             info(n, D.flags, file);
             pane.dataset.images = n;
           }).catch(function () { if (my === token) showOwn(); });
